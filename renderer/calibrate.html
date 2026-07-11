@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Calibrate</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body { height: 100%; font-family: "Bahnschrift", "Segoe UI", sans-serif; color: #e7edf6;
+    background: radial-gradient(ellipse 120% 100% at 30% 0%, #1a1e26, #0b0d12 70%, #06070a); }
+  body { padding: 16px 18px; display: flex; flex-direction: column; }
+  h1 { font-size: 14px; font-weight: 700; letter-spacing: .5px; color: #ffd27a; margin-bottom: 3px; }
+  .hint { font-size: 10.5px; color: #9aa4b8; line-height: 1.45; margin-bottom: 12px; }
+  .hint code { color: #ffbe5c; background: #0d0f15; padding: 0 3px; border-radius: 3px; }
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .row label { flex: 0 0 96px; font-size: 11px; font-weight: 600; color: #c3ccdb; }
+  .row label small { display: block; color: #6b7488; font-size: 8.5px; letter-spacing: .5px; }
+  .row .in { flex: 0 0 66px; position: relative; }
+  .row input { width: 100%; height: 28px; padding: 0 20px 0 8px; text-align: right;
+    background: #0c0e14; border: 1px solid #454d5e; border-radius: 5px; color: #f2f6fc;
+    font-size: 13px; font-variant-numeric: tabular-nums; -webkit-user-select: text; user-select: text; }
+  .row input:focus { outline: none; border-color: #7fb0ff; box-shadow: 0 0 0 2px rgba(90,150,255,.2); }
+  .row .pct { position: absolute; right: 7px; top: 6px; color: #6b7488; font-size: 11px; pointer-events: none; }
+  .row .eq { flex: 1 1 auto; text-align: right; font-size: 9.5px; color: #7a8398;
+    font-variant-numeric: tabular-nums; }
+  .btns { margin-top: auto; display: flex; gap: 8px; padding-top: 12px; }
+  button { flex: 1; height: 32px; border-radius: 6px; border: 1px solid #3a4050; cursor: pointer;
+    font-size: 12px; font-weight: 600; transition: all .15s; }
+  #apply { background: linear-gradient(180deg, #2f7d4a, #1c5230); color: #dfffe9; border-color: #3a8f57; }
+  #apply:hover { background: linear-gradient(180deg, #38945a, #226139); }
+  #cancel { background: linear-gradient(180deg, #262b36, #14171e); color: #aab3c6; }
+  #cancel:hover { color: #fff; }
+  .done { color: #5cff8f; font-size: 11px; text-align: center; margin-top: 8px; height: 12px; }
+</style>
+</head>
+<body>
+  <h1>Calibrate to /usage</h1>
+  <div class="hint">
+    Run <code>/usage</code> in Claude Code, then type the percentages it shows.
+    Leave a field blank to skip it.
+  </div>
+
+  <div class="row">
+    <label>Fable weekly<small>WEEKLY · FABLE</small></label>
+    <div class="in"><input id="fable" type="text" inputmode="decimal" placeholder="–"><span class="pct">%</span></div>
+    <span class="eq" id="eq-fable"></span>
+  </div>
+  <div class="row">
+    <label>All weekly<small>WEEKLY · ALL</small></label>
+    <div class="in"><input id="all" type="text" inputmode="decimal" placeholder="–"><span class="pct">%</span></div>
+    <span class="eq" id="eq-all"></span>
+  </div>
+  <div class="row">
+    <label>Session 5h<small>5-HOUR LIMIT</small></label>
+    <div class="in"><input id="session" type="text" inputmode="decimal" placeholder="–"><span class="pct">%</span></div>
+    <span class="eq" id="eq-session"></span>
+  </div>
+
+  <div class="done" id="done"></div>
+  <div class="btns">
+    <button id="cancel">Cancel</button>
+    <button id="apply">Apply</button>
+  </div>
+
+  <script src="calibrate-ui.js"></script>
+</body>
+</html>

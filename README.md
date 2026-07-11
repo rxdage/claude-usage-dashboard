@@ -64,8 +64,12 @@ in the OS credential store). So you calibrate once against `/usage`, and the bar
 then show real "remaining". The weekly window is anchored to the same **Monday
 09:00 reset** as Claude, so one calibration holds for the whole week.
 
-**One command (recommended):** run `/usage` in Claude Code, then pass the weekly
-percentages (and optionally the 5-hour %):
+**Easiest — the tray button (works for the .exe too):** right-click the tray icon
+→ **Calibrate…**. A small window opens; run `/usage` in Claude Code and type the
+percentages it shows (Fable weekly, All weekly, and/or 5-hour), then click
+**Apply**. The bars update instantly. No command line, no file editing.
+
+**From source, one command:** run `/usage`, then:
 
 ```bash
 npm run cal -- <Fable weekly %> <All weekly %> [session %]
@@ -73,8 +77,8 @@ npm run cal -- <Fable weekly %> <All weekly %> [session %]
 npm run cal -- 21 17 33
 ```
 
-It reads your current usage, back-solves the limits, writes `config.json`, and the
-widget picks it up within ~3s (no restart).
+Either way it reads your current usage, back-solves the limits, writes
+`config.json`, and the widget picks it up within ~3s (no restart).
 
 ### Why "cost-weighted" instead of raw token count
 
@@ -95,9 +99,10 @@ here is a **weighting unit**, not what your subscription actually bills.
 
 - **Run from source:** it lives in the project folder next to `package.json`.
 - **Prebuilt `.exe`:** it lives in your user data folder,
-  `%APPDATA%\Claude Usage Dashboard\config.json`. The tray icon's **"Open config
-  folder"** menu item opens it directly. (`npm run cal` only applies to the
-  from-source install; exe users edit this file by hand.)
+  `%APPDATA%\Claude Usage Dashboard\config.json`. Easiest way to change
+  calibration is the tray **"Calibrate…"** button; the tray **"Open config
+  folder"** item opens the file directly for manual edits. (`npm run cal` only
+  applies to the from-source install.)
 
 Keys:
 

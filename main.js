@@ -21,6 +21,9 @@ function saveConfig(cfg) {
 
 let win = null;
 let tray = null;
+let calWin = null;
+let scanner = null;
+let pushStats = null;
 
 function createWindow() {
   const cfg = loadConfig();
@@ -93,6 +96,7 @@ app.whenReady().then(() => {
     tray.setToolTip('Claude Usage Dashboard');
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
+      { label: 'Calibrate…', click: () => openCalibrateWindow() },
       { label: 'Open config folder', click: () => {
         if (fs.existsSync(CONFIG_PATH)) shell.showItemInFolder(CONFIG_PATH);
         else shell.openPath(path.dirname(CONFIG_PATH));
@@ -102,7 +106,7 @@ app.whenReady().then(() => {
     ]));
   } catch {}
 
-  const scanner = new UsageScanner();
+  scanner = new UsageScanner();
   const push = () => {
     if (!win || win.isDestroyed()) return;
     try {
@@ -112,8 +116,23 @@ app.whenReady().then(() => {
       win.webContents.send('stats-error', String(err));
     }
   };
+  pushStats = push;
   win.webContents.on('did-finish-load', push);
   setInterval(push, 3000);
+
+  // Debug: `electron . --shot-cal=<path>` captures the calibration dialog
+  const calShotArg = process.argv.find((a) => a.startsWith('--shot-cal='));
+  if (calShotArg) {
+    const out = calShotArg.slice('--shot-cal='.length);
+    openCalibrateWindow();
+    setTimeout(async () => {
+      try {
+        const img = await calWin.webContents.capturePage();
+        fs.writeFileSync(out, img.toPNG());
+      } catch (e) { console.error(e); }
+      app.quit();
+    }, 2500);
+  }
 
   // Debug: `electron . --shot=<path>` captures the rendered widget and exits
   const shotArg = process.argv.find((a) => a.startsWith('--shot='));
@@ -129,7 +148,59 @@ app.whenReady().then(() => {
   }
 });
 
+// ---- Calibration dialog ----
+function openCalibrateWindow() {
+  if (calWin && !calWin.isDestroyed()) { calWin.focus(); return; }
+  calWin = new BrowserWindow({
+    width: 340, height: 340,
+    resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    title: 'Calibrate — Claude Usage Dashboard',
+    alwaysOnTop: true,
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  calWin.setMenuBarVisibility(false);
+  calWin.loadFile(path.join(__dirname, 'renderer', 'calibrate.html'));
+  calWin.on('closed', () => { calWin = null; });
+}
+
+// current cost-weighted usage, so the dialog can show reference numbers
+ipcMain.handle('cal:getCurrent', () => {
+  try {
+    const st = scanner.getStats(loadConfig());
+    return { fableCost: st.fableWeekCost, allCost: st.weekCost, sessionCost: st.sessionCost };
+  } catch { return { fableCost: 0, allCost: 0, sessionCost: 0 }; }
+});
+
+// apply: back-solve cost-weighted limits from the entered official percentages
+ipcMain.handle('cal:apply', (_e, pct) => {
+  const st = scanner.getStats(loadConfig());
+  const c = loadConfig();
+  c.metric = 'cost';
+  delete c.fableWeeklyTokenLimit; delete c.weeklyTokenLimit; delete c.sessionTokenLimit;
+  const set = (key, usedCost, p) => {
+    const v = Number(p);
+    if (v > 0) c[key] = Math.round((usedCost / (v / 100)) * 100) / 100;
+  };
+  set('fableWeeklyLimit', st.fableWeekCost, pct.fable);
+  set('weeklyLimit', st.weekCost, pct.all);
+  set('sessionLimit', st.sessionCost, pct.session);
+  if (!Number.isInteger(c.weeklyResetDay)) c.weeklyResetDay = 1;
+  if (!Number.isInteger(c.weeklyResetHour)) c.weeklyResetHour = 9;
+  saveConfig(c);
+  if (pushStats) pushStats(); // refresh the widget immediately
+  return { ok: true };
+});
+
+ipcMain.on('cal:close', () => { if (calWin && !calWin.isDestroyed()) calWin.close(); });
+
 ipcMain.on('close-app', () => app.quit());
 ipcMain.on('hide-app', () => win && win.hide());
 
+// keep the app alive while only the widget is hidden; quit when the widget
+// itself is closed (calibrate window closing must not quit the app)
 app.on('window-all-closed', () => app.quit());
