@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Claude Usage Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="panel">
+    <div id="winbtns">
+      <button id="btn-hide" title="隐藏到托盘">–</button>
+      <button id="btn-close" title="退出">×</button>
+    </div>
+
+    <div id="gauge-session"></div>
+
+    <div id="side">
+      <div class="row" id="row-fable">
+        <div class="row-head">
+          <span class="row-name">FABLE·5 <span class="wk">WK</span></span>
+          <span class="row-val" id="fable-val">–</span>
+        </div>
+        <div class="bar" id="fable-bar"></div>
+      </div>
+
+      <div class="row" id="row-all">
+        <div class="row-head">
+          <span class="row-name">ALL <span class="wk">WK</span></span>
+          <span class="row-val" id="all-val">–</span>
+        </div>
+        <div class="bar" id="all-bar"></div>
+      </div>
+
+      <div class="row foot">
+        <span class="foot-item"><b id="today-cost">$0.00</b><i>today</i></span>
+        <span class="foot-sep"></span>
+        <span class="foot-item"><b id="block-reset">--</b><i>wk reset</i></span>
+        <span class="lamp" id="lamp-live">●</span>
+      </div>
+    </div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

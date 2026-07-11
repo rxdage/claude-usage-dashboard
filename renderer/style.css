@@ -1,0 +1,113 @@
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: "Bahnschrift", "Segoe UI", sans-serif;
+}
+
+#panel {
+  position: relative;
+  width: 300px; height: 118px;
+  border-radius: 16px;
+  background: radial-gradient(ellipse 100% 90% at 30% 10%, #1a1e26 0%, #0b0d12 62%, #06070a 100%);
+  border: 1px solid #2a2f3a;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -14px 30px rgba(0,0,0,0.55),
+    0 8px 26px rgba(0,0,0,0.65);
+  -webkit-app-region: drag;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+#panel::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 4px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,0.15) 0 2px, transparent 2px 4px);
+  pointer-events: none;
+}
+
+#winbtns {
+  position: absolute; top: 5px; right: 7px; z-index: 10;
+  -webkit-app-region: no-drag;
+  display: flex; gap: 4px;
+  opacity: 0; transition: opacity .18s;
+}
+#panel:hover #winbtns { opacity: 1; }
+#winbtns button {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1px solid #3a4050;
+  background: linear-gradient(180deg, #262b36, #14171e);
+  color: #8a93a6; font-size: 10px; line-height: 1; cursor: pointer;
+  transition: all .15s;
+}
+#winbtns button:hover { color: #fff; }
+#btn-close:hover { color: #ff5f56; border-color: #ff5f56; }
+
+#gauge-session {
+  width: 104px; height: 104px;
+  margin-left: 6px; flex: 0 0 auto;
+}
+svg { display: block; width: 100%; height: 100%; }
+
+#side {
+  flex: 1 1 auto;
+  height: 104px;
+  padding: 8px 12px 8px 4px;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+}
+
+.row { display: flex; flex-direction: column; gap: 3px; }
+.row-head { display: flex; justify-content: space-between; align-items: baseline; }
+.row-name {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: #d3dae7;
+}
+.row-name .wk { color: #9aa4b8; font-size: 8.5px; letter-spacing: 1px; }
+#row-fable .row-name { color: #ffd27a; text-shadow: 0 0 8px rgba(255,180,60,.45); }
+.row-val {
+  font-size: 12px; font-weight: 700; color: #f2f6fc;
+  font-variant-numeric: tabular-nums;
+}
+.row-val.dim { color: #aeb7ca; font-weight: 600; font-size: 10px; letter-spacing: .3px; }
+
+/* segmented fuel-gauge bar */
+.bar {
+  height: 10px; border-radius: 3px;
+  background: linear-gradient(180deg, #0a0c12, #13161f);
+  border: 1px solid #4a5266;
+  position: relative; overflow: hidden;
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,.7),
+    0 1px 0 rgba(255,255,255,0.06);   /* crisp bottom highlight so the frame reads */
+}
+.bar .fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 2px;
+  transition: width .7s cubic-bezier(.3,1,.4,1), background .5s;
+}
+.bar .fill::after { /* segment lines */
+  content: ""; position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(90deg, transparent 0 13px, rgba(0,0,0,.55) 13px 15px);
+}
+
+.foot {
+  flex-direction: row; align-items: center; gap: 8px;
+  margin-top: 1px;
+}
+.foot-item { display: flex; flex-direction: column; line-height: 1.05; }
+.foot-item b {
+  font-size: 13px; font-weight: 700; color: #ffc76e;
+  text-shadow: 0 0 8px rgba(255,170,60,.45); font-variant-numeric: tabular-nums;
+}
+.foot-item i { font-size: 8px; font-style: normal; letter-spacing: 1.5px; color: #97a1b5; font-weight: 600; }
+.foot-sep { width: 1px; height: 20px; background: rgba(120,132,160,.18); }
+.lamp {
+  margin-left: auto; font-size: 12px; color: #2a3140; transition: all .4s;
+}
+.lamp.on { color: #5cff8f; text-shadow: 0 0 8px rgba(90,255,140,.9); }

@@ -1,0 +1,9 @@
+{
+  "metric": "cost",
+  "fableWeeklyLimit": 1600,
+  "weeklyLimit": 3400,
+  "sessionLimit": 190,
+  "weeklyResetDay": 1,
+  "weeklyResetHour": 9,
+  "opacity": 1.0
+}

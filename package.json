@@ -1,0 +1,24 @@
+{
+  "name": "claude-usage-dashboard",
+  "version": "1.0.0",
+  "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude usage (session, weekly, Fable-5) in real time — 100% local.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "cal": "node calibrate.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "usage",
+    "dashboard",
+    "widget",
+    "electron",
+    "tachometer",
+    "token-usage"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

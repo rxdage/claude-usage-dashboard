@@ -1,0 +1,10 @@
+node_modules/
+config.json
+*.bak
+*.log
+npm-debug.log*
+assets/_preview_strip.png
+.DS_Store
+Thumbs.db
+
+.claude/
