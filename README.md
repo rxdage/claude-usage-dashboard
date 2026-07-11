@@ -13,7 +13,17 @@ gauge. All data is **100% local**: it parses your Claude Code transcripts under
 > scanner is plain Node and should work cross-platform; the tray icon path and
 > the auto-start snippet are Windows-specific.
 
-## Install & run
+## Download (no Node needed)
+
+Grab the prebuilt Windows `.exe` from the
+[**Releases**](https://github.com/rxdage/claude-usage-dashboard/releases) page:
+
+- **`…-setup.exe`** — installer (adds a Start-menu entry).
+- **`…-portable.exe`** — single-file, just double-click to run.
+
+Builds are produced automatically by GitHub Actions on each tagged release.
+
+## Run from source
 
 Requires [Node.js](https://nodejs.org) 18+.
 
@@ -23,6 +33,8 @@ cd claude-usage-dashboard
 npm install
 npm start
 ```
+
+To build the `.exe` yourself: `npm run dist` (output in `dist/`).
 
 > **In mainland China**, if the Electron binary download stalls, set the mirror
 > first: `set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` (PowerShell:
@@ -79,7 +91,15 @@ here is a **weighting unit**, not what your subscription actually bills.
 ### `config.json` reference
 
 `config.json` is created automatically (it stores window position too) and is
-**git-ignored** — it holds your personal calibration. Keys:
+**git-ignored** — it holds your personal calibration.
+
+- **Run from source:** it lives in the project folder next to `package.json`.
+- **Prebuilt `.exe`:** it lives in your user data folder,
+  `%APPDATA%\Claude Usage Dashboard\config.json`. The tray icon's **"Open config
+  folder"** menu item opens it directly. (`npm run cal` only applies to the
+  from-source install; exe users edit this file by hand.)
+
+Keys:
 
 ```json
 {

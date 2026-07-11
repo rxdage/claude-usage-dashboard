@@ -1,9 +1,14 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { UsageScanner } = require('./usage');
 
-const CONFIG_PATH = path.join(__dirname, 'config.json');
+// In a packaged build __dirname lives inside the read-only asar, so config must
+// live in userData. In dev (npm start) keep it in the project dir so `npm run
+// cal` and the app read/write the same file.
+const CONFIG_PATH = app.isPackaged
+  ? path.join(app.getPath('userData'), 'config.json')
+  : path.join(__dirname, 'config.json');
 const WIN_W = 300, WIN_H = 118;
 const SNAP = 26; // px: distance to a screen edge that triggers magnetic snap
 
@@ -88,6 +93,10 @@ app.whenReady().then(() => {
     tray.setToolTip('Claude Usage Dashboard');
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
+      { label: 'Open config folder', click: () => {
+        if (fs.existsSync(CONFIG_PATH)) shell.showItemInFolder(CONFIG_PATH);
+        else shell.openPath(path.dirname(CONFIG_PATH));
+      } },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
     ]));
