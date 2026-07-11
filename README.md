@@ -1,5 +1,18 @@
 # Claude Usage Dashboard 🏎️
 
+<p align="center">
+  <a href="https://github.com/rxdage/claude-usage-dashboard/releases/latest"><img src="https://img.shields.io/github/v/release/rxdage/claude-usage-dashboard?color=2f7d4a&label=release" alt="Latest release"></a>
+  <a href="https://github.com/rxdage/claude-usage-dashboard/releases"><img src="https://img.shields.io/github/downloads/rxdage/claude-usage-dashboard/total?color=555" alt="Total downloads"></a>
+  <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/github/license/rxdage/claude-usage-dashboard?color=blue" alt="License: MIT">
+</p>
+
+<p align="center">
+  <a href="https://github.com/rxdage/claude-usage-dashboard/releases/latest">
+    <img src="https://img.shields.io/badge/%E2%AC%87%20Download%20for%20Windows-Get%20the%20.exe-2f7d4a?style=for-the-badge" alt="Download for Windows">
+  </a>
+</p>
+
 A floating "luxury-car instrument cluster" desktop widget that shows your Claude
 usage in real time — session (5-hour), weekly, and a dedicated **Fable-5 weekly**
 gauge. All data is **100% local**: it parses your Claude Code transcripts under
