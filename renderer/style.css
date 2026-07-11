@@ -69,7 +69,7 @@ svg { display: block; width: 100%; height: 100%; }
   font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: #d3dae7;
 }
 .row-name .wk { color: #9aa4b8; font-size: 8.5px; letter-spacing: 1px; }
-#row-fable .row-name { color: #ffd27a; text-shadow: 0 0 8px rgba(255,180,60,.45); }
+#row-1 .row-name { color: #ffd27a; text-shadow: 0 0 8px rgba(255,180,60,.45); }
 .row-val {
   font-size: 12px; font-weight: 700; color: #f2f6fc;
   font-variant-numeric: tabular-nums;

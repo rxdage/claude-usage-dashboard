@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { UsageScanner } = require('./usage');
+const { Providers } = require('./providers');
 
 // In a packaged build __dirname lives inside the read-only asar, so config must
 // live in userData. In dev (npm start) keep it in the project dir so `npm run
@@ -22,7 +22,7 @@ function saveConfig(cfg) {
 let win = null;
 let tray = null;
 let calWin = null;
-let scanner = null;
+let providers = null;
 let pushStats = null;
 
 function createWindow() {
@@ -91,27 +91,19 @@ app.whenReady().then(() => {
   if (!gotLock) return;
   createWindow();
 
+  providers = new Providers();
+
   try {
     tray = new Tray(path.join(__dirname, 'assets', 'icon.ico'));
     tray.setToolTip('Claude Usage Dashboard');
-    tray.setContextMenu(Menu.buildFromTemplate([
-      { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
-      { label: 'Calibrate…', click: () => openCalibrateWindow() },
-      { label: 'Open config folder', click: () => {
-        if (fs.existsSync(CONFIG_PATH)) shell.showItemInFolder(CONFIG_PATH);
-        else shell.openPath(path.dirname(CONFIG_PATH));
-      } },
-      { type: 'separator' },
-      { label: 'Quit', click: () => app.quit() },
-    ]));
+    buildTrayMenu();
   } catch {}
 
-  scanner = new UsageScanner();
   const push = () => {
     if (!win || win.isDestroyed()) return;
     try {
-      const stats = scanner.getStats(loadConfig());
-      win.webContents.send('stats', stats);
+      const payload = providers.getPayload(loadConfig());
+      win.webContents.send('stats', payload);
     } catch (err) {
       win.webContents.send('stats-error', String(err));
     }
@@ -148,6 +140,49 @@ app.whenReady().then(() => {
   }
 });
 
+function buildTrayMenu() {
+  if (!tray) return;
+  const have = providers.detect();
+  const cfg = loadConfig();
+  const active = providers.resolve(cfg);
+  const items = [
+    { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
+  ];
+  // provider switch only when both data sources exist
+  if (have.claude && have.codex) {
+    items.push({
+      label: 'Data source',
+      submenu: [
+        { label: 'Claude Code', type: 'radio', checked: active === 'claude',
+          click: () => setProvider('claude') },
+        { label: 'Codex', type: 'radio', checked: active === 'codex',
+          click: () => setProvider('codex') },
+      ],
+    });
+  }
+  if (active === 'claude') {
+    items.push({ label: 'Calibrate…', click: () => openCalibrateWindow() });
+  }
+  items.push(
+    { label: 'Open config folder', click: () => {
+      if (fs.existsSync(CONFIG_PATH)) shell.showItemInFolder(CONFIG_PATH);
+      else shell.openPath(path.dirname(CONFIG_PATH));
+    } },
+    { type: 'separator' },
+    { label: 'Quit', click: () => app.quit() },
+  );
+  tray.setContextMenu(Menu.buildFromTemplate(items));
+}
+
+function setProvider(name) {
+  const c = loadConfig();
+  c.provider = 'auto';       // keep auto-detect, but remember the chosen active one
+  c.activeProvider = name;
+  saveConfig(c);
+  if (pushStats) pushStats();
+  buildTrayMenu();
+}
+
 // ---- Calibration dialog ----
 function openCalibrateWindow() {
   if (calWin && !calWin.isDestroyed()) { calWin.focus(); return; }
@@ -171,14 +206,14 @@ function openCalibrateWindow() {
 // current cost-weighted usage, so the dialog can show reference numbers
 ipcMain.handle('cal:getCurrent', () => {
   try {
-    const st = scanner.getStats(loadConfig());
+    const st = providers.claudeScanner().getStats(loadConfig());
     return { fableCost: st.fableWeekCost, allCost: st.weekCost, sessionCost: st.sessionCost };
   } catch { return { fableCost: 0, allCost: 0, sessionCost: 0 }; }
 });
 
 // apply: back-solve cost-weighted limits from the entered official percentages
 ipcMain.handle('cal:apply', (_e, pct) => {
-  const st = scanner.getStats(loadConfig());
+  const st = providers.claudeScanner().getStats(loadConfig());
   const c = loadConfig();
   c.metric = 'cost';
   delete c.fableWeeklyTokenLimit; delete c.weeklyTokenLimit; delete c.sessionTokenLimit;

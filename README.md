@@ -13,18 +13,34 @@
   </a>
 </p>
 
-A floating "luxury-car instrument cluster" desktop widget that shows your Claude
-usage in real time — session (5-hour), weekly, and a dedicated **Fable-5 weekly**
-gauge. All data is **100% local**: it parses your Claude Code transcripts under
-`~/.claude/projects` (JSONL). No network, no credentials touched.
+A floating "luxury-car instrument cluster" desktop widget that shows your coding-agent
+usage in real time — session (5-hour) and weekly gauges. All data is **100% local**:
+it reads your local transcripts. No network, no credentials touched.
 
-一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的 Claude 用量(5 小时 session、周用量、以及专门的 Fable-5 周用量)。数据**完全本地**:解析 `~/.claude/projects` 下的会话记录,不联网、不碰任何凭据。
+**Works with both [Claude Code](https://claude.com/claude-code) and
+[OpenAI Codex CLI](https://github.com/openai/codex).** It auto-detects whichever you
+have (`~/.claude/projects` and/or `~/.codex/sessions`); if you use both, switch via
+the tray **Data source** menu.
+
+一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**,自动识别你装了哪个;两个都用可在托盘「Data source」里切换。
 
 ![preview](docs/preview.png)
 
 > **Windows-first.** Built and tested on Windows 11 with Electron. The core
 > scanner is plain Node and should work cross-platform; the tray icon path and
 > the auto-start snippet are Windows-specific.
+
+### Claude Code vs Codex
+
+| | Claude Code | Codex CLI |
+|---|---|---|
+| Data source | `~/.claude/projects/**.jsonl` | `~/.codex/sessions/**/rollout-*.jsonl` |
+| Gauges | 5h session · Fable-5 weekly · all-model weekly | 5h session · weekly · cache-hit |
+| Official %? | Not stored locally — **calibrate once** (see below) | **Read directly** from the logs' `rate_limits` — no calibration needed |
+
+Codex writes the real 5-hour and weekly `used_percent` (and exact reset times) into
+its session logs, so the Codex view is exact out of the box. The Claude view needs a
+one-time calibration because Claude Code doesn't store those numbers locally.
 
 ## Download (no Node needed)
 

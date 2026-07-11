@@ -61,8 +61,9 @@ function buildTach(container) {
     }, svg);
   }
 
-  el('text', { x: c, y: c - 15, fill: '#c2cbdb', 'font-size': 8.5, 'letter-spacing': 1.2,
-    'text-anchor': 'middle', 'font-weight': 700 }, svg).textContent = 'SESSION';
+  const labelEl = el('text', { x: c, y: c - 15, fill: '#c2cbdb', 'font-size': 8, 'letter-spacing': 1,
+    'text-anchor': 'middle', 'font-weight': 700 }, svg);
+  labelEl.textContent = 'SESSION';
   const digital = el('text', { x: c, y: c + 13, fill: '#ffc76e', 'font-size': 21, 'font-weight': 700,
     'text-anchor': 'middle', 'font-variant-numeric': 'tabular-nums',
     style: 'text-shadow:0 0 8px rgba(255,170,60,.55)' }, svg);
@@ -77,7 +78,7 @@ function buildTach(container) {
 
   return {
     set(frac) { g.style.transform = `rotate(${START + SWEEP * Math.max(0, Math.min(1, frac))}deg)`; },
-    digital, sub: subEl,
+    digital, sub: subEl, label: labelEl,
   };
 }
 
@@ -91,84 +92,57 @@ function makeBar(id) {
   bar.appendChild(fill);
   return fill;
 }
-const fableFill = makeBar('fable-bar');
-const allFill = makeBar('all-bar');
+const bar1Fill = makeBar('bar1-bar');
+const bar2Fill = makeBar('bar2-bar');
 
-function barColor(pct, remaining) {
-  // remaining bars: green when plenty, red when nearly gone
-  const v = remaining ? pct : 100 - pct;
-  if (v > 60) return 'linear-gradient(90deg,#2fd06b,#7dffb0)';
-  if (v > 30) return 'linear-gradient(90deg,#e0a92a,#ffd76a)';
+function remainingColor(pct) {
+  if (pct > 60) return 'linear-gradient(90deg,#2fd06b,#7dffb0)';
+  if (pct > 30) return 'linear-gradient(90deg,#e0a92a,#ffd76a)';
   return 'linear-gradient(90deg,#ff3b30,#ff8a6a)';
 }
+const TONE = {
+  'info-amber': 'linear-gradient(90deg,#c98a2a,#ffd27a)',
+  'info-blue': 'linear-gradient(90deg,#3a6ea5,#7fbfff)',
+};
 
-// ---- formatting ----
-function fmtTokens(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-  return String(Math.round(n));
-}
-function fmtCountdown(ms) {
-  if (ms <= 0) return '--:--';
-  const m = Math.floor(ms / 60000);
-  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
-}
-function fmtDaysHours(ms) {
-  if (ms == null || ms <= 0) return '--';
-  const h = Math.floor(ms / 3600000);
-  if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
-  if (h >= 1) return `${h}h ${Math.floor((ms % 3600000) / 60000)}m`;
-  return `${Math.floor(ms / 60000)}m`;
-}
 const $ = (id) => document.getElementById(id);
 
-function render(s) {
-  // session tach — digital goes red in the redline zone, like a real cluster
-  tach.set(s.sessionPct / 100);
-  tach.digital.textContent = s.active ? Math.round(s.sessionPct) + '%' : 'IDLE';
-  const inRed = s.active && s.sessionPct >= 80;
-  tach.digital.setAttribute('fill', inRed ? '#ff4d42' : '#ffc76e');
-  tach.digital.setAttribute('style', inRed
+function applyBar(fill, nameId, valId, b) {
+  $(nameId).innerHTML = `${b.label} ${b.wk ? '<span class="wk">WK</span>' : ''}`;
+  const val = $(valId);
+  fill.style.width = Math.max(0, Math.min(100, b.fillPct)) + '%';
+  if (b.tone === 'remaining') {
+    fill.style.background = remainingColor(b.fillPct);
+    val.className = 'row-val';
+  } else {
+    fill.style.background = TONE[b.tone] || TONE['info-blue'];
+    val.className = 'row-val dim';
+  }
+  val.textContent = b.valText;
+}
+
+// consumes the normalized payload produced by providers.js (Claude or Codex)
+function render(p) {
+  tach.set(p.tach.pct / 100);
+  tach.digital.textContent = p.tach.text;
+  tach.digital.setAttribute('fill', p.tach.red ? '#ff4d42' : '#ffc76e');
+  tach.digital.setAttribute('style', p.tach.red
     ? 'text-shadow:0 0 10px rgba(255,60,40,.7)'
     : 'text-shadow:0 0 8px rgba(255,170,60,.55)');
-  tach.sub.textContent = s.active ? fmtTokens(s.sessionTokens) + ' · ' + fmtCountdown(s.resetInMs) : '5h window';
+  tach.sub.textContent = p.tach.sub;
+  tach.label.textContent = p.tach.label;
 
-  // FABLE weekly row
-  if (s.fableRemainingPct != null) {
-    fableFill.style.width = s.fableRemainingPct + '%';
-    fableFill.style.background = barColor(s.fableRemainingPct, true);
-    $('fable-val').className = 'row-val';
-    $('fable-val').textContent = Math.round(s.fableRemainingPct) + '% left';
-  } else {
-    // uncalibrated: show used amount; bar reflects Fable's share of the week
-    const share = s.weekTokens > 0 ? (s.fableWeekTokens / s.weekTokens) * 100 : 0;
-    fableFill.style.width = Math.max(2, share) + '%';
-    fableFill.style.background = 'linear-gradient(90deg,#c98a2a,#ffd27a)';
-    $('fable-val').className = 'row-val dim';
-    $('fable-val').textContent = fmtTokens(s.fableWeekTokens) + ' used · set limit';
-  }
+  applyBar(bar1Fill, 'bar1-name', 'bar1-val', p.bars[0]);
+  applyBar(bar2Fill, 'bar2-name', 'bar2-val', p.bars[1]);
 
-  // ALL weekly row
-  if (s.weeklyRemainingPct != null) {
-    allFill.style.width = s.weeklyRemainingPct + '%';
-    allFill.style.background = barColor(s.weeklyRemainingPct, true);
-    $('all-val').className = 'row-val';
-    $('all-val').textContent = Math.round(s.weeklyRemainingPct) + '% left';
-  } else {
-    allFill.style.width = Math.max(2, s.weeklyPct) + '%';
-    allFill.style.background = 'linear-gradient(90deg,#3a6ea5,#7fbfff)';
-    $('all-val').className = 'row-val dim';
-    $('all-val').textContent = fmtTokens(s.weekTokens) + ' used';
-  }
+  $('foot-left-val').textContent = p.footer.left.val;
+  $('foot-left-label').textContent = p.footer.left.label;
+  $('foot-right-val').textContent = p.footer.right.val;
+  $('foot-right-label').textContent = p.footer.right.label;
 
-  // footer: weekly reset countdown (the 5h countdown already lives in the tach)
-  $('today-cost').textContent = '$' + s.dayCost.toFixed(2);
-  $('block-reset').textContent = fmtDaysHours(s.weekResetInMs);
   const lamp = $('lamp-live');
-  lamp.style.color = ''; // clear any error tint from a previous bad poll
-  const live = s.lastActivity && Date.now() - s.lastActivity < 90000;
-  lamp.classList.toggle('on', !!live);
+  lamp.style.color = '';
+  lamp.classList.toggle('on', !!p.live);
 }
 
 if (window.electronAPI) {
@@ -182,21 +156,21 @@ if (window.electronAPI) {
   $('btn-close').addEventListener('click', () => window.electronAPI.close());
   $('btn-hide').addEventListener('click', () => window.electronAPI.hide());
 } else {
-  // browser demo
+  // browser demo (normalized payload)
   let t = 0;
   setInterval(() => {
     t += 0.05;
     const pct = 50 + 30 * Math.sin(t) + 12 * Math.sin(t * 3.3);
+    const rem = 88 - 20 * (0.5 + 0.5 * Math.sin(t / 2));
     render({
-      active: true,
-      sessionPct: Math.max(3, Math.min(97, pct)),
-      sessionTokens: 8.4e6 * (pct / 100),
-      resetInMs: 2.6 * 3600 * 1000,
-      dayCost: 8.62, weekTokens: 148e6, fableWeekTokens: 96e6,
-      fableRemainingPct: 88 - 20 * (0.5 + 0.5 * Math.sin(t / 2)),
-      weeklyRemainingPct: 61 - 15 * (0.5 + 0.5 * Math.sin(t / 3)),
-      weekResetInMs: 2.4 * 86400000,
-      lastActivity: Date.now(),
+      provider: 'claude', active: true, live: true,
+      tach: { pct: Math.max(3, Math.min(97, pct)), text: Math.round(pct) + '%',
+        sub: '8.4M · 2:36', red: pct >= 80, label: 'CLAUDE·5H' },
+      bars: [
+        { label: 'FABLE·5', wk: true, fillPct: rem, tone: 'remaining', valText: Math.round(rem) + '% left' },
+        { label: 'ALL', wk: true, fillPct: 61, tone: 'remaining', valText: '61% left' },
+      ],
+      footer: { left: { val: '$8.62', label: 'today' }, right: { val: '2d 9h', label: 'wk reset' } },
     });
   }, 700);
 }
