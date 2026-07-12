@@ -22,11 +22,11 @@ it reads your local transcripts. No network, no credentials touched.
 have (`~/.claude/projects` and/or `~/.codex/sessions`). **Use both?** The main
 cluster **auto-follows whichever tool you used last** (30s hysteresis so it doesn't
 flap), while a slim strip at the bottom always shows the other one's 5-hour and
-weekly usage. **Click the strip to toggle**: it pins the other provider as primary
-(an amber 📌 appears so you always know you're pinned); click again to resume
-auto-follow (⇄). The tray **Data source** menu offers the same three modes.
+weekly usage. Two buttons on the strip: **⇄ swap** switches the primary at any
+time (and pins to it), **📌 pin** toggles between locked (lit) and auto-follow
+(greyed). The tray **Data source** menu offers the same three modes.
 
-一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量;**点细条即切换**——锁定另一侧为主显(出现琥珀色 📌 表示已锁定),再点一次恢复自动跟随(⇄)。
+一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量。细条右侧两个按钮:**⇄ 切换**随时对调主显(并锁定到目标),**📌 锁定**独立开关(点亮=锁定当前,变灰=自动跟随)。
 
 ![preview](docs/preview.png)
 

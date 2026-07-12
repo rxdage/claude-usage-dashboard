@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   close: () => ipcRenderer.send('close-app'),
   hide: () => ipcRenderer.send('hide-app'),
   swapProvider: () => ipcRenderer.send('swap-provider'),
+  togglePin: () => ipcRenderer.send('toggle-pin'),
   // calibration dialog
   calGetCurrent: () => ipcRenderer.invoke('cal:getCurrent'),
   calApply: (pct) => ipcRenderer.invoke('cal:apply', pct),

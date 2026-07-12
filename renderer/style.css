@@ -124,11 +124,9 @@ svg { display: block; width: 100%; height: 100%; }
   display: flex; align-items: center; gap: 7px;
   padding: 0 6px;
   border-top: 1px solid rgba(120,132,160,0.16);
-  cursor: pointer;
-  -webkit-app-region: no-drag;   /* must be clickable, not draggable */
-  transition: background .15s;
+  /* info area is draggable like the rest of the panel; only the two small
+     buttons are clickable — this is what prevents accidental clicks */
 }
-#secondary:hover { background: rgba(120,150,200,0.06); }
 #secondary.hidden { display: none; }
 .sec-live { font-size: 9px; color: #2a3140; transition: color .4s; }
 .sec-live.on { color: #5cff8f; text-shadow: 0 0 6px rgba(90,255,140,.8); }
@@ -153,9 +151,18 @@ svg { display: block; width: 100%; height: 100%; }
   display: block; height: 100%;
   transition: width .6s cubic-bezier(.3,1,.4,1), background .4s;
 }
-.sec-swap { margin-left: auto; font-size: 11px; color: #56617a; }
-#secondary:hover .sec-swap { color: #aab7d4; }
-.sec-swap.pinned {
-  font-size: 10px; color: #ffbe5c;
-  text-shadow: 0 0 6px rgba(255,170,60,.6);
+.sec-btn {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  font-size: 11px; color: #56617a;
+  padding: 2px 5px; border-radius: 4px;
+  transition: all .15s;
+}
+.sec-btn:hover { color: #cfe0ff; background: rgba(120,150,200,0.14); }
+#sec-swap { margin-left: auto; }
+#sec-pin { filter: grayscale(1); opacity: .4; font-size: 10px; }
+#sec-pin:hover { opacity: .75; background: rgba(120,150,200,0.14); }
+#sec-pin.pinned {
+  filter: none; opacity: 1;
+  background: rgba(255,170,60,0.10);
 }

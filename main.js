@@ -142,16 +142,17 @@ app.whenReady().then(() => {
   }
 
   // Debug: `electron . --shot=<path>` captures the rendered widget and exits.
-  // Add --click-swap to click the secondary strip first (tests the swap path).
+  // Add --click-el=<domId> to click an element first (tests button wiring E2E).
   const shotArg = process.argv.find((a) => a.startsWith('--shot='));
   if (shotArg) {
     const out = shotArg.slice('--shot='.length);
-    const doSwap = process.argv.includes('--click-swap');
+    const clickArg = process.argv.find((a) => a.startsWith('--click-el='));
     setTimeout(async () => {
       try {
-        if (doSwap) {
+        if (clickArg) {
+          const id = clickArg.slice('--click-el='.length);
           await win.webContents.executeJavaScript(
-            "document.getElementById('secondary').click(); 'clicked'");
+            `document.getElementById(${JSON.stringify(id)}).click(); 'clicked'`);
           await new Promise((r) => setTimeout(r, 1500)); // let IPC + repush land
         }
         const img = await win.webContents.capturePage();
@@ -261,17 +262,19 @@ ipcMain.handle('cal:apply', (_e, pct) => {
 
 ipcMain.on('cal:close', () => { if (calWin && !calWin.isDestroyed()) calWin.close(); });
 
-// Strip click TOGGLES: auto -> pin the other provider (plain swap would be
-// reverted by auto-follow within a tick); pinned -> back to auto-follow.
-// Toggling means a click can never leave you silently stuck in a pinned state.
+// ⇄ swap: ALWAYS switches the primary, in either mode. It pins to the target
+// (a swap left in auto mode would be reverted by auto-follow within a tick,
+// which reads as "the swap didn't work"). The pin button hands control back.
 ipcMain.on('swap-provider', () => {
+  setProviderMode(lastPrimaryName === 'codex' ? 'claude' : 'codex');
+});
+
+// 📌 pin: independent toggle — pin the CURRENT primary, or back to auto-follow.
+ipcMain.on('toggle-pin', () => {
   const { Providers } = require('./providers');
   const mode = Providers.modeFrom(loadConfig());
-  if (mode === 'auto') {
-    setProviderMode(lastPrimaryName === 'codex' ? 'claude' : 'codex');
-  } else {
-    setProviderMode('auto');
-  }
+  if (mode === 'auto') setProviderMode(lastPrimaryName || 'claude');
+  else setProviderMode('auto');
 });
 
 ipcMain.on('close-app', () => app.quit());

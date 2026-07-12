@@ -140,14 +140,13 @@ function renderSecondary(sec, mode) {
   $('sec-name').textContent = sec.label;
   $('sec-live').classList.toggle('on', !!sec.live);
 
-  // visible pin state: amber pin when locked, swap arrows when auto-following
+  // pin button reflects mode: lit amber = pinned, greyed = auto-following
   const pinned = mode !== 'auto';
-  const swap = strip.querySelector('.sec-swap');
-  swap.textContent = pinned ? '📌' : '⇄';
-  swap.classList.toggle('pinned', pinned);
-  strip.title = pinned
-    ? '已锁定当前主显 · 点击恢复自动跟随 / pinned — click to resume auto-follow'
-    : '自动跟随中 · 点击锁定另一侧为主显 / auto-following — click to pin the other';
+  const pinBtn = $('sec-pin');
+  pinBtn.classList.toggle('pinned', pinned);
+  pinBtn.title = pinned
+    ? '已锁定当前主显 · 点击恢复自动跟随 / pinned — click for auto-follow'
+    : '自动跟随中 · 点击锁定当前主显 / auto-following — click to pin current';
   const setMetric = (valId, fillId, pct) => {
     $(valId).textContent = pct == null ? '–' : Math.round(pct) + '%';
     const f = $(fillId);
@@ -194,15 +193,20 @@ if (window.electronAPI) {
   });
   $('btn-close').addEventListener('click', () => window.electronAPI.close());
   $('btn-hide').addEventListener('click', () => window.electronAPI.hide());
-  // Drag-intent guard: grabbing the strip to drag the window fires a click on
-  // mouseup (the strip is no-drag, so the window never moves). Only treat it
-  // as a click when the pointer barely moved between down and up.
-  let downAt = null;
-  $('secondary').addEventListener('mousedown', (e) => { downAt = [e.screenX, e.screenY]; });
-  $('secondary').addEventListener('click', (e) => {
-    if (downAt && Math.hypot(e.screenX - downAt[0], e.screenY - downAt[1]) > 4) return;
-    window.electronAPI.swapProvider();
-  });
+  // Two explicit buttons: ⇄ always swaps the primary; 📌 toggles pin/auto.
+  // Drag-intent guard: a mouseup after >4px of pointer travel is a drag
+  // attempt, not a click.
+  const guardedClick = (id, fn) => {
+    const el = $(id);
+    let downAt = null;
+    el.addEventListener('mousedown', (e) => { downAt = [e.screenX, e.screenY]; });
+    el.addEventListener('click', (e) => {
+      if (downAt && Math.hypot(e.screenX - downAt[0], e.screenY - downAt[1]) > 4) return;
+      fn();
+    });
+  };
+  guardedClick('sec-swap', () => window.electronAPI.swapProvider());
+  guardedClick('sec-pin', () => window.electronAPI.togglePin());
 } else {
   // browser demo (normalized payload)
   let t = 0;
