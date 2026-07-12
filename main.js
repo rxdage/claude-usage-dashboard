@@ -99,12 +99,15 @@ if (!gotLock) {
 }
 
 function makeProviders() {
+  const cfg = loadConfig();
   return new Providers({
     claudeOptions: {
       safeStorage,
       // Electron's net.fetch honors the system/Claude-Desktop proxy config,
       // unlike Node's global fetch. Only used when official usage is opted in.
       fetchFn: (url, options) => net.fetch(url, options),
+      // default true; set config.officialUsageWriteBack=false for memory-only
+      writeBackTokens: cfg.officialUsageWriteBack !== false,
     },
   });
 }

@@ -16,7 +16,10 @@ const path = require('path');
 const os = require('os');
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
+const OAUTH_TOKEN_URL = 'https://console.anthropic.com/v1/oauth/token';
+const OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'; // Claude Code public client
 const OAUTH_BETA = 'oauth-2025-04-20';
+const REFRESH_MARGIN_MS = 90 * 1000; // refresh when this close to expiry
 const ACTIVE_POLL_MS = 60 * 1000;
 const IDLE_POLL_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 12 * 1000;
@@ -96,7 +99,7 @@ function standardCredentialFiles() {
   return [path.join(root, '.credentials.json')];
 }
 
-function tokenFromCredentialObject(value, source) {
+function tokenFromCredentialObject(value, source, file = null) {
   if (!value || typeof value !== 'object') return null;
   const oauth = value.claudeAiOauth || value.oauth || value;
   if (!oauth || typeof oauth !== 'object') return null;
@@ -104,7 +107,53 @@ function tokenFromCredentialObject(value, source) {
   if (typeof token !== 'string' || !token.trim()) return null;
   const expiryRaw = oauth.expiresAt || oauth.expires_at || oauth.expiry;
   const expiresAt = expiryRaw == null ? null : resetMs(Number(expiryRaw) || expiryRaw);
-  return { token: token.trim(), expiresAt, source };
+  const refreshToken = oauth.refreshToken || oauth.refresh_token || null;
+  // `file` is set only for our own credential file, which we may write back to.
+  return { token: token.trim(), expiresAt, source, refreshToken, file };
+}
+
+// Exchange a refresh token for a fresh access token (same grant Claude Code
+// uses). Returns { accessToken, refreshToken, expiresAt }; keeps the old
+// refresh token if the server didn't rotate it.
+async function refreshAccessToken(refreshToken, fetchFn) {
+  if (!fetchFn) throw new Error('refresh-fetch-unavailable');
+  if (!refreshToken) throw new Error('refresh-token-missing');
+  const res = await fetchFn(OAUTH_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: OAUTH_CLIENT_ID,
+    }),
+  });
+  if (!res.ok) throw new Error(`refresh-http-${res.status}`);
+  const j = await res.json();
+  if (!j || typeof j.access_token !== 'string' || !j.access_token) {
+    throw new Error('refresh-no-access-token');
+  }
+  return {
+    accessToken: j.access_token,
+    refreshToken: (typeof j.refresh_token === 'string' && j.refresh_token) ? j.refresh_token : refreshToken,
+    expiresAt: Number.isFinite(Number(j.expires_in)) ? Date.now() + Number(j.expires_in) * 1000 : null,
+  };
+}
+
+// Merge the refreshed tokens back into the shared credential file WITHOUT
+// disturbing any other field. Atomic (temp + rename) so a crash can't leave a
+// half-written file that would break the CLI too.
+function writeBackCredential(file, updated) {
+  let cur = {};
+  try { cur = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
+  if (!cur || typeof cur !== 'object') cur = {};
+  const o = (cur.claudeAiOauth && typeof cur.claudeAiOauth === 'object') ? cur.claudeAiOauth : {};
+  o.accessToken = updated.accessToken;
+  o.refreshToken = updated.refreshToken;
+  if (updated.expiresAt) o.expiresAt = updated.expiresAt;
+  cur.claudeAiOauth = o;
+  const tmp = `${file}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, JSON.stringify(cur, null, 2));
+  fs.renameSync(tmp, file);
 }
 
 function desktopDataDirs() {
@@ -173,10 +222,13 @@ function resolveClaudeTokens({ safeStorage = null, now = Date.now() } = {}) {
   // full-login credentials first: they carry user:profile
   const standard = [];
   for (const file of standardCredentialFiles()) {
-    const found = tokenFromCredentialObject(readJson(file), `claude-code:${file}`);
+    const found = tokenFromCredentialObject(readJson(file), `claude-code:${file}`, file);
     if (found) standard.push(found);
   }
-  const standardToken = chooseToken(standard, now);
+  // Keep even an expired standard credential — it may still carry a usable
+  // refresh token that the fetcher will exchange for a fresh access token.
+  const standardToken = chooseToken(standard, now)
+    || standard.find((c) => c.refreshToken) || null;
   if (standardToken) out.push(standardToken);
 
   const explicit = process.env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -211,6 +263,7 @@ class ClaudeOfficialUsage {
   constructor(options = {}) {
     this.safeStorage = options.safeStorage || null;
     this.fetchFn = options.fetchFn || null;
+    this.writeBackTokens = options.writeBackTokens !== false; // default: write back
     this.now = options.now || (() => Date.now());
     this.resolveTokens = options.resolveTokens || ((now) => resolveClaudeTokens({
       safeStorage: this.safeStorage,
@@ -284,7 +337,24 @@ class ClaudeOfficialUsage {
       // user:profile) and remember the last rejection for diagnostics.
       let response = null, credential = null, lastAuthErr = null;
       for (const cand of candidates) {
-        const res = await this.doFetch(cand.token);
+        let useToken = cand.token;
+        // Proactively refresh an expired (or near-expired) credential that has a
+        // refresh token and is one of OUR writable files. Only for the standard
+        // credential file — never the env var or the desktop cache.
+        const expired = cand.expiresAt != null && cand.expiresAt < now + REFRESH_MARGIN_MS;
+        if (expired && cand.refreshToken && cand.file) {
+          try {
+            const fresh = await refreshAccessToken(cand.refreshToken, this.fetchFn);
+            if (this.writeBackTokens) {
+              try { writeBackCredential(cand.file, fresh); } catch {}
+            }
+            useToken = fresh.accessToken;
+          } catch (e) {
+            lastAuthErr = `refresh-failed:${e && e.message} (${cand.source})`;
+            continue; // don't send a known-expired token; try next candidate
+          }
+        }
+        const res = await this.doFetch(useToken);
         if (res.status === 401 || res.status === 403) {
           lastAuthErr = `claude-usage-http-${res.status} (${cand.source})`;
           continue;
@@ -324,6 +394,8 @@ module.exports = {
   normalizeUsageResponse,
   resolveClaudeToken,
   resolveClaudeTokens,
+  refreshAccessToken,
+  writeBackCredential,
   desktopConfigFiles,
   clampPct,
   resetMs,

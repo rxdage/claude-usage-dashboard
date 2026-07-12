@@ -217,10 +217,17 @@ request to Anthropic.
 - The Claude **Desktop** token cache can't be decrypted by a separate app
   (OS app-bound encryption), so the widget can't reuse it.
 
-**Expiry caveat:** the CLI login token expires after some hours. The widget
-deliberately never refreshes another app's token, so when it expires the view
-falls back to `EST` until you use the CLI again (or re-`/login`). Using the
-terminal CLI regularly keeps it fresh automatically.
+**Auto-refresh:** the login writes both a short-lived access token (~8h) and a
+longer-lived refresh token (~4 weeks). When the access token expires, the widget
+uses the refresh token to get a new one and writes it back to
+`~/.claude/.credentials.json` (atomically, preserving every other field — the
+same file the CLI reads, so they stay in sync). So `SERVER` stays live without
+you touching anything, as long as you log in via the CLI at least once every few
+weeks (any CLI use also refreshes it). To keep refreshed tokens in memory only
+and never write the file, set `"officialUsageWriteBack": false` in `config.json`.
+
+If both the access token is expired *and* the refresh fails (e.g. the refresh
+token itself expired, or no network), the widget silently falls back to `EST`.
 
 **Check whether it works on your machine** without opening the window:
 
