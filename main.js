@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell, safeStorage, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Providers } = require('./providers');
@@ -86,8 +86,10 @@ function createWindow() {
   });
 }
 
-// single instance: relaunching just reveals the existing widget
-const gotLock = app.requestSingleInstanceLock();
+// single instance: relaunching just reveals the existing widget. The usage
+// probe is a headless diagnostic and must be allowed to run alongside it.
+const probeUsage = process.argv.includes('--probe-usage');
+const gotLock = probeUsage || app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
@@ -96,11 +98,40 @@ if (!gotLock) {
   });
 }
 
-app.whenReady().then(() => {
-  if (!gotLock) return;
-  createWindow();
+function makeProviders() {
+  return new Providers({
+    claudeOptions: {
+      safeStorage,
+      // Electron's net.fetch honors the system/Claude-Desktop proxy config,
+      // unlike Node's global fetch. Only used when official usage is opted in.
+      fetchFn: (url, options) => net.fetch(url, options),
+    },
+  });
+}
 
-  providers = new Providers();
+app.whenReady().then(async () => {
+  if (!gotLock) return;
+  providers = makeProviders();
+
+  // `electron . --probe-usage` — verify official-usage credentials/fetch
+  // without opening a window. Prints status only, never the token.
+  if (probeUsage) {
+    try {
+      const cfg = Object.assign({}, loadConfig(), { officialUsage: true });
+      const payload = await providers.getPayload(cfg);
+      console.log(JSON.stringify({
+        provider: payload.provider,
+        session: payload.tach && payload.tach.text,
+        sessionSub: payload.tach && payload.tach.sub,
+        bars: (payload.bars || []).map((b) => ({ label: b.label, value: b.valText })),
+        dataStatus: payload.dataStatus || null,
+      }, null, 2));
+    } catch (e) { console.error(String(e)); process.exitCode = 1; }
+    app.quit();
+    return;
+  }
+
+  createWindow();
 
   try {
     tray = new Tray(path.join(__dirname, 'assets', 'icon.ico'));
@@ -108,24 +139,31 @@ app.whenReady().then(() => {
     buildTrayMenu();
   } catch {}
 
-  const push = () => {
+  // getPayload is async (official usage may await a network call). Guard against
+  // overlapping ticks so a slow fetch never stacks up requests.
+  let pushing = false, pushAgain = false;
+  const push = async () => {
     if (!win || win.isDestroyed()) return;
+    if (pushing) { pushAgain = true; return; }
+    pushing = true;
     try {
-      const payload = providers.getPayload(loadConfig());
-      // window height is fixed at creation (see createWindow) — no runtime resize
-      // rebuild tray radio state when auto-follow changes the primary
+      const payload = await providers.getPayload(loadConfig());
+      if (!win || win.isDestroyed()) return;
       if (payload.primaryName !== lastPrimaryName) {
         lastPrimaryName = payload.primaryName;
         buildTrayMenu();
       }
       win.webContents.send('stats', payload);
     } catch (err) {
-      win.webContents.send('stats-error', String(err));
+      if (win && !win.isDestroyed()) win.webContents.send('stats-error', String(err));
+    } finally {
+      pushing = false;
+      if (pushAgain) { pushAgain = false; setImmediate(push); }
     }
   };
-  pushStats = push;
-  win.webContents.on('did-finish-load', push);
-  setInterval(push, 3000);
+  pushStats = () => { void push(); };
+  win.webContents.on('did-finish-load', pushStats);
+  setInterval(pushStats, 3000);
 
   // Debug: `electron . --shot-cal=<path>` captures the calibration dialog
   const calShotArg = process.argv.find((a) => a.startsWith('--shot-cal='));

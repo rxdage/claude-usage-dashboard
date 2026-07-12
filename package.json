@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-dashboard",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude usage (session, weekly, Fable-5) in real time — 100% local.",
   "main": "main.js",
   "author": "rxdage",

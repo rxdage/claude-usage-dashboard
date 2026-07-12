@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('os');
 const { UsageScanner } = require('./usage');           // Claude
 const { CodexScanner, available: codexAvailable } = require('./providers/codex');
+const { ClaudeOfficialUsage } = require('./providers/claude'); // opt-in
 
 const CLAUDE_PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 // Don't flip the primary until the other provider has been the newer one by
@@ -33,8 +34,22 @@ const countdownDays = (ms) => {
   return `${Math.floor(ms / 60000)}m`;
 };
 
-// Map the Claude scanner's raw stats into the normalized payload.
-function claudePayload(s) {
+function usableOfficialMeter(meter, now) {
+  return !!(meter && meter.usedPct != null && (!meter.resetAt || meter.resetAt > now));
+}
+function compactModelLabel(label) {
+  const v = String(label || '').toUpperCase();
+  if (/FABLE/.test(v)) return 'FABLE·5';
+  if (/MYTHOS/.test(v)) return 'MYTHOS';
+  if (/OPUS/.test(v)) return 'OPUS';
+  if (/SONNET/.test(v)) return 'SONNET';
+  return v.slice(0, 12) || 'MODEL';
+}
+
+// Clean local view (opt-in official usage OFF). No SERVER/STALE/EST tags — the
+// sub line shows tokens and countdown, exactly as the fully-local widget always
+// has. This is the default.
+function claudeLocalPayload(s) {
   const bar = (remainingPct, label, usedTokens, usedPct, shareTone, uncalSuffix) => {
     if (remainingPct != null) {
       return { label, wk: true, fillPct: remainingPct, tone: 'remaining',
@@ -68,6 +83,79 @@ function claudePayload(s) {
       right: { val: countdownDays(s.weekResetInMs), label: 'wk reset' },
     },
     live: !!(s.lastActivity && Date.now() - s.lastActivity < 90000),
+    dataStatus: { kind: 'local', source: 'local-transcript', error: null },
+  };
+}
+
+// Official-usage view (opt-in ON). `official` is the ClaudeOfficialUsage state
+// object (never null here). When its meters are usable they take over, tagged
+// SERVER (fresh) or STALE (cached); when the fetch failed it falls back to the
+// local estimate tagged EST. A leading ~ marks any non-SERVER number.
+// `official === null` means opt-in is OFF -> clean local view above.
+function claudePayload(s, official = null) {
+  if (!official) return claudeLocalPayload(s);
+  const now = Date.now();
+  const od = official && official.data;
+  const serverSession = od && usableOfficialMeter(od.session, now) ? od.session : null;
+  const serverWeekly = od && usableOfficialMeter(od.weekly, now) ? od.weekly : null;
+  const serverModel = od && usableOfficialMeter(od.modelWeekly, now) ? od.modelWeekly : null;
+  const hasServer = !!serverSession;
+  const stale = !!(official && official.stale);
+  const exact = hasServer && !stale;
+  const sourceTag = exact ? 'SERVER' : hasServer ? 'STALE' : 'EST';
+  const sessionPct = hasServer ? serverSession.usedPct : s.sessionPct;
+
+  const localBar = (remainingPct, label, usedTokens, usedPct, shareTone, uncalSuffix) => {
+    if (remainingPct != null) {
+      return { label, wk: true, fillPct: remainingPct, tone: 'remaining',
+        valText: `${Math.round(remainingPct)}% left` };
+    }
+    return { label, wk: true, fillPct: Math.max(2, usedPct), tone: shareTone,
+      valText: `${fmtTok(usedTokens)} used${uncalSuffix}` };
+  };
+  const officialBar = (meter, label) => meter ? {
+    label, wk: true, fillPct: Math.max(0, 100 - meter.usedPct), tone: 'remaining',
+    valText: `${stale ? '~' : ''}${Math.round(100 - meter.usedPct)}% left`,
+  } : null;
+
+  const fableShare = s.weekTokens > 0 ? (s.fableWeekTokens / s.weekTokens) * 100 : 0;
+  const modelBar = officialBar(serverModel, compactModelLabel(serverModel && serverModel.label))
+    || localBar(s.fableRemainingPct, 'FABLE·5', s.fableWeekTokens, fableShare, 'info-amber', ' · set limit');
+  const weeklyBar = officialBar(serverWeekly, 'ALL')
+    || localBar(s.weeklyRemainingPct, 'ALL', s.weekTokens, s.weeklyPct, 'info-blue', '');
+  const sessionResetInMs = serverSession && serverSession.resetAt
+    ? Math.max(0, serverSession.resetAt - now) : s.resetInMs;
+  const weeklyResetInMs = serverWeekly && serverWeekly.resetAt
+    ? Math.max(0, serverWeekly.resetAt - now) : s.weekResetInMs;
+  const activeOrServer = hasServer || s.active;
+
+  return {
+    provider: 'claude',
+    active: hasServer ? sessionPct > 0 : s.active,
+    lastActivity: s.lastActivity || null,
+    _sec: {
+      sessionPct: hasServer ? sessionPct : (s.active ? s.sessionPct : 0),
+      weeklyPct: serverWeekly ? serverWeekly.usedPct
+        : (s.weeklyRemainingPct != null ? 100 - s.weeklyRemainingPct : null),
+    },
+    tach: {
+      pct: sessionPct,
+      text: activeOrServer ? `${exact ? '' : '~'}${Math.round(sessionPct)}%` : 'IDLE',
+      sub: activeOrServer ? `${sourceTag} · ${countdown(sessionResetInMs)}` : '5h window',
+      red: activeOrServer && sessionPct >= 80,
+      label: 'CLAUDE·5H',
+    },
+    bars: [modelBar, weeklyBar],
+    footer: {
+      left: { val: '$' + s.dayCost.toFixed(2), label: 'today' },
+      right: { val: countdownDays(weeklyResetInMs), label: 'wk reset' },
+    },
+    live: !!(s.lastActivity && Date.now() - s.lastActivity < 90000),
+    dataStatus: {
+      kind: exact ? 'official' : hasServer ? 'stale' : 'estimate',
+      source: official && official.source || 'local-transcript-estimate',
+      error: official && official.error && official.error.message || null,
+    },
   };
 }
 
@@ -76,11 +164,20 @@ function claudePayload(s) {
 const MANUAL_HOLD_MS = 5 * 60 * 1000;
 
 class Providers {
-  constructor() {
+  constructor(options = {}) {
     this.claude = null;
     this.codex = null;
+    this.claudeOptions = options.claudeOptions || {};
+    this._official = options.claudeOfficial || null; // lazily created when opted in
     this.lastPrimary = null;  // sticky auto-follow state
     this.holdUntil = 0;       // manual-swap hold deadline (auto mode only)
+  }
+
+  // Created only when the user opts into official usage, so the default build
+  // never constructs the credential-reading / network client.
+  officialUsage() {
+    if (!this._official) this._official = new ClaudeOfficialUsage(this.claudeOptions);
+    return this._official;
   }
 
   // Manual swap while in auto mode: flip the sticky primary in memory (no
@@ -131,15 +228,25 @@ class Providers {
     return this.lastPrimary;
   }
 
-  getPayload(config) {
+  async getPayload(config) {
     const have = this.detect();
     const mode = Providers.modeFrom(config);
-    const cl = have.claude ? claudePayload(this.claudeScanner().getStats(config)) : null;
+    let cl = null;
+    if (have.claude) {
+      const local = this.claudeScanner().getStats(config);
+      let official = null;
+      // Opt-in only. Default builds never touch credentials or the network.
+      if (config && config.officialUsage) {
+        const active = !!(local.lastActivity && Date.now() - local.lastActivity < 90000);
+        try { official = await this.officialUsage().getUsage({ active }); } catch {}
+      }
+      cl = claudePayload(local, official);
+    }
     const cx = have.codex ? this.codexScanner().getStats() : null;
 
     const primaryName = this.pickPrimary(mode, have, cl, cx);
     let primary = primaryName === 'codex' ? cx : cl;
-    if (!primary) primary = cl || cx || claudePayload(this.claudeScanner().getStats(config));
+    if (!primary) primary = cl || cx || claudePayload(this.claudeScanner().getStats(config), null);
 
     const other = primaryName === 'codex' ? cl : cx;
     const secondary = (have.claude && have.codex && other) ? {
@@ -154,4 +261,4 @@ class Providers {
   }
 }
 
-module.exports = { Providers, claudePayload };
+module.exports = { Providers, claudePayload, usableOfficialMeter };

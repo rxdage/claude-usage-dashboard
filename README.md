@@ -14,8 +14,10 @@
 </p>
 
 A floating "luxury-car instrument cluster" desktop widget that shows your coding-agent
-usage in real time — session (5-hour) and weekly gauges. All data is **100% local**:
-it reads your local transcripts. No network, no credentials touched.
+usage in real time — session (5-hour) and weekly gauges. **100% local by default**:
+it reads your local transcripts, with no network and no credentials touched.
+(An optional, off-by-default [official-usage mode](#advanced-official-claude-usage-opt-in)
+can fetch Anthropic's authoritative numbers — see Advanced.)
 
 **Works with both [Claude Code](https://claude.com/claude-code) and
 [OpenAI Codex CLI](https://github.com/openai/codex).** It auto-detects whichever you
@@ -29,7 +31,7 @@ other side. **PIN** is an independent toggle: lit amber = locked to the current
 primary, unlit = auto-follow. The tray **Data source** menu offers the same
 three modes.
 
-一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量。细条右侧两个按钮:**⇄ 切换**随时对调主显且**不改变锁定状态**(auto 下是临时查看,约 5 分钟后恢复自动跟随);**PIN 锁定**独立开关(琥珀色点亮=锁定当前,熄灭=自动跟随)。
+一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。**默认完全本地、不联网、不碰凭据**(有一个默认关闭的可选「官方用量」模式可拉取 Anthropic 官方数字,见 Advanced)。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量。细条右侧两个按钮:**⇄ 切换**随时对调主显且**不改变锁定状态**(auto 下是临时查看,约 5 分钟后恢复自动跟随);**PIN 锁定**独立开关(琥珀色点亮=锁定当前,熄灭=自动跟随)。
 
 ![preview](docs/preview.png)
 
@@ -69,6 +71,10 @@ cd claude-usage-dashboard
 npm install
 npm start
 ```
+
+**Quick launch (Windows):** after `npm install`, double-click **`start-widget.cmd`**
+— it starts the widget hidden (no console window) and detached. Point a Start-menu
+or desktop shortcut at it for one-click launch.
 
 To build the `.exe` yourself: `npm run dist` (output in `dist/`).
 
@@ -171,6 +177,56 @@ Keys:
 2. **Approximate weighting.** Cost-weighting is the best local approximation, not
    Anthropic's exact formula, so it can drift a few points when your workload mix
    changes a lot. Re-run `npm run cal` when it looks off.
+
+## Advanced: official Claude usage (opt-in)
+
+By default the Claude view is a **local estimate**, calibrated against `/usage`.
+If you'd rather show Anthropic's **authoritative** numbers directly, you can opt
+into official-usage mode. **This is off by default** because it changes the
+privacy profile: it reads your logged-in Claude OAuth token and makes a network
+request to Anthropic.
+
+**What it does / doesn't do**
+- Reads your Claude OAuth token from (in order) the `CLAUDE_CODE_OAUTH_TOKEN`
+  env var, Claude Code's `~/.claude/.credentials.json`, or — where the OS allows
+  it — the Claude Desktop token cache.
+- Sends that token **only** as a `Bearer` header to `GET /api/oauth/usage`
+  (the same endpoint `/usage` uses). The token is **never displayed, logged, or
+  written** by this widget.
+- If it can't get a token or the request fails, it **silently falls back to the
+  local estimate** — it never blocks or shows stale-as-fresh data.
+
+**Turn it on** — add to `config.json`:
+
+```json
+{ "officialUsage": true }
+```
+
+**Windows note:** the Claude Desktop token cache usually **can't** be decrypted
+by a separate app, and Claude Code on Windows keeps its token in the Credential
+Manager (not a file). So on Windows you'll typically need a token explicitly:
+
+```powershell
+# generate a long-lived token, then set it for the widget's session
+claude setup-token
+$env:CLAUDE_CODE_OAUTH_TOKEN = "<paste the token>"
+```
+
+(macOS/Linux with Claude Code usually work out of the box via
+`~/.claude/.credentials.json`.)
+
+**Check whether it works on your machine** without opening the window:
+
+```bash
+./node_modules/.bin/electron.cmd . --probe-usage
+```
+
+It prints the resolved status only (never the token): `SERVER` = live official,
+`STALE` = cached official, `EST` = fell back to local (with the reason, e.g.
+`claude-oauth-credentials-not-found`).
+
+**In the widget**, the tach's sub-label shows which source is live: `SERVER` /
+`STALE` / `EST`. Non-`SERVER` numbers are prefixed with `~`.
 
 ## Regenerating the icon
 
