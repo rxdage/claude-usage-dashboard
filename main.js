@@ -261,12 +261,17 @@ ipcMain.handle('cal:apply', (_e, pct) => {
 
 ipcMain.on('cal:close', () => { if (calWin && !calWin.isDestroyed()) calWin.close(); });
 
-// Clicking the secondary strip pins the OTHER provider as primary.
-// (Pin rather than plain swap: with auto-follow on, an un-pinned swap would be
-// reverted by the next activity tick, which reads as "the click didn't work".)
+// Strip click TOGGLES: auto -> pin the other provider (plain swap would be
+// reverted by auto-follow within a tick); pinned -> back to auto-follow.
+// Toggling means a click can never leave you silently stuck in a pinned state.
 ipcMain.on('swap-provider', () => {
-  const other = lastPrimaryName === 'codex' ? 'claude' : 'codex';
-  setProviderMode(other);
+  const { Providers } = require('./providers');
+  const mode = Providers.modeFrom(loadConfig());
+  if (mode === 'auto') {
+    setProviderMode(lastPrimaryName === 'codex' ? 'claude' : 'codex');
+  } else {
+    setProviderMode('auto');
+  }
 });
 
 ipcMain.on('close-app', () => app.quit());

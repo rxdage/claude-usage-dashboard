@@ -155,3 +155,7 @@ svg { display: block; width: 100%; height: 100%; }
 }
 .sec-swap { margin-left: auto; font-size: 11px; color: #56617a; }
 #secondary:hover .sec-swap { color: #aab7d4; }
+.sec-swap.pinned {
+  font-size: 10px; color: #ffbe5c;
+  text-shadow: 0 0 6px rgba(255,170,60,.6);
+}

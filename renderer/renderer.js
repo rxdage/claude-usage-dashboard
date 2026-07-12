@@ -128,7 +128,7 @@ function usedColor(pct) {
   return 'linear-gradient(90deg,#ff3b30,#ff8a6a)';
 }
 
-function renderSecondary(sec) {
+function renderSecondary(sec, mode) {
   const strip = $('secondary');
   if (!sec) {
     strip.classList.add('hidden');
@@ -139,6 +139,15 @@ function renderSecondary(sec) {
   document.body.classList.add('dual');
   $('sec-name').textContent = sec.label;
   $('sec-live').classList.toggle('on', !!sec.live);
+
+  // visible pin state: amber pin when locked, swap arrows when auto-following
+  const pinned = mode !== 'auto';
+  const swap = strip.querySelector('.sec-swap');
+  swap.textContent = pinned ? '📌' : '⇄';
+  swap.classList.toggle('pinned', pinned);
+  strip.title = pinned
+    ? '已锁定当前主显 · 点击恢复自动跟随 / pinned — click to resume auto-follow'
+    : '自动跟随中 · 点击锁定另一侧为主显 / auto-following — click to pin the other';
   const setMetric = (valId, fillId, pct) => {
     $(valId).textContent = pct == null ? '–' : Math.round(pct) + '%';
     const f = $(fillId);
@@ -172,7 +181,7 @@ function render(p) {
   lamp.style.color = '';
   lamp.classList.toggle('on', !!p.live);
 
-  renderSecondary(p.secondary);
+  renderSecondary(p.secondary, p.mode);
 }
 
 if (window.electronAPI) {
@@ -185,7 +194,15 @@ if (window.electronAPI) {
   });
   $('btn-close').addEventListener('click', () => window.electronAPI.close());
   $('btn-hide').addEventListener('click', () => window.electronAPI.hide());
-  $('secondary').addEventListener('click', () => window.electronAPI.swapProvider());
+  // Drag-intent guard: grabbing the strip to drag the window fires a click on
+  // mouseup (the strip is no-drag, so the window never moves). Only treat it
+  // as a click when the pointer barely moved between down and up.
+  let downAt = null;
+  $('secondary').addEventListener('mousedown', (e) => { downAt = [e.screenX, e.screenY]; });
+  $('secondary').addEventListener('click', (e) => {
+    if (downAt && Math.hypot(e.screenX - downAt[0], e.screenY - downAt[1]) > 4) return;
+    window.electronAPI.swapProvider();
+  });
 } else {
   // browser demo (normalized payload)
   let t = 0;
