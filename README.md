@@ -189,8 +189,12 @@ request to Anthropic.
 **Easiest — the setup wizard:** tray → **Set up official usage…**. It finds the
 Claude CLI, injects your system proxy, opens a sign-in terminal (approve in your
 browser — no commands to type), and flips to green **✓ Connected** automatically.
-The tach's source tag then reads **`SERVER`** (green) for live official data,
-`STALE` (amber) for cached, or `EST` (dim) when it falls back to local.
+
+<img src="docs/setup-wizard.png" width="380" alt="Official usage setup wizard">
+
+The tach's source tag then reads **`SERVER`** (green, glowing) for live official
+data, `STALE` (amber) for cached, or `EST` (dim) when it falls back to local —
+so you can always tell at a glance which numbers you're looking at.
 
 The rest of this section is the manual path / reference.
 
