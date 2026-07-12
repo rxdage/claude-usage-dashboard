@@ -71,12 +71,25 @@ function claudePayload(s) {
   };
 }
 
+// After a manual swap in auto mode, hold the choice this long before
+// auto-follow may take over again (else the swap reverts within one tick).
+const MANUAL_HOLD_MS = 5 * 60 * 1000;
+
 class Providers {
   constructor() {
     this.claude = null;
     this.codex = null;
-    this.lastPrimary = null; // sticky auto-follow state
+    this.lastPrimary = null;  // sticky auto-follow state
+    this.holdUntil = 0;       // manual-swap hold deadline (auto mode only)
   }
+
+  // Manual swap while in auto mode: flip the sticky primary in memory (no
+  // config write — the mode stays auto) and hold it for a while.
+  forcePrimary(name) {
+    this.lastPrimary = name;
+    this.holdUntil = Date.now() + MANUAL_HOLD_MS;
+  }
+  clearHold() { this.holdUntil = 0; }
 
   detect() {
     return { claude: claudeAvailable(), codex: codexAvailable() };
@@ -103,6 +116,8 @@ class Providers {
     if (have.codex && !have.claude) return 'codex';
     if (!have.claude && !have.codex) return 'claude'; // idle default view
     if (mode === 'claude' || mode === 'codex') return mode;
+    // manual-swap hold: keep the user's choice for a while before following again
+    if (this.lastPrimary && Date.now() < this.holdUntil) return this.lastPrimary;
     // auto-follow with hysteresis
     const a = (clPayload && clPayload.lastActivity) || 0;
     const b = (cxPayload && cxPayload.lastActivity) || 0;

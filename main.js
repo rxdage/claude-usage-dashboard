@@ -208,6 +208,7 @@ function setProviderMode(mode) {
   c.providerMode = mode;
   delete c.provider; delete c.activeProvider; // legacy keys
   saveConfig(c);
+  providers.clearHold(); // explicit mode change overrides any manual-swap hold
   if (pushStats) pushStats();
   buildTrayMenu();
 }
@@ -262,14 +263,23 @@ ipcMain.handle('cal:apply', (_e, pct) => {
 
 ipcMain.on('cal:close', () => { if (calWin && !calWin.isDestroyed()) calWin.close(); });
 
-// ⇄ swap: ALWAYS switches the primary, in either mode. It pins to the target
-// (a swap left in auto mode would be reverted by auto-follow within a tick,
-// which reads as "the swap didn't work"). The pin button hands control back.
+// ⇄ swap: ALWAYS switches the primary and NEVER touches the pin state.
+// - auto mode: flip the in-memory choice with a temporary hold (config stays
+//   auto; auto-follow resumes after the hold or on the next pin/tray action)
+// - pinned mode: re-pin to the other provider
 ipcMain.on('swap-provider', () => {
-  setProviderMode(lastPrimaryName === 'codex' ? 'claude' : 'codex');
+  const { Providers } = require('./providers');
+  const mode = Providers.modeFrom(loadConfig());
+  const other = lastPrimaryName === 'codex' ? 'claude' : 'codex';
+  if (mode === 'auto') {
+    providers.forcePrimary(other);
+    if (pushStats) pushStats();
+  } else {
+    setProviderMode(other);
+  }
 });
 
-// 📌 pin: independent toggle — pin the CURRENT primary, or back to auto-follow.
+// PIN: independent toggle — pin the CURRENT primary, or back to auto-follow.
 ipcMain.on('toggle-pin', () => {
   const { Providers } = require('./providers');
   const mode = Providers.modeFrom(loadConfig());

@@ -23,10 +23,13 @@ have (`~/.claude/projects` and/or `~/.codex/sessions`). **Use both?** The main
 cluster **auto-follows whichever tool you used last** (30s hysteresis so it doesn't
 flap), while a slim strip at the bottom always shows the other one's 5-hour and
 weekly usage. Two buttons on the strip: **⇄ swap** switches the primary at any
-time (and pins to it), **📌 pin** toggles between locked (lit) and auto-follow
-(greyed). The tray **Data source** menu offers the same three modes.
+time — in auto mode it's a temporary peek (auto-follow resumes after ~5 minutes
+or on your next action; the mode is not changed), while pinned it re-pins to the
+other side. **PIN** is an independent toggle: lit amber = locked to the current
+primary, unlit = auto-follow. The tray **Data source** menu offers the same
+three modes.
 
-一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量。细条右侧两个按钮:**⇄ 切换**随时对调主显(并锁定到目标),**📌 锁定**独立开关(点亮=锁定当前,变灰=自动跟随)。
+一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量。细条右侧两个按钮:**⇄ 切换**随时对调主显且**不改变锁定状态**(auto 下是临时查看,约 5 分钟后恢复自动跟随);**PIN 锁定**独立开关(琥珀色点亮=锁定当前,熄灭=自动跟随)。
 
 ![preview](docs/preview.png)
 
