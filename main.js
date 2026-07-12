@@ -29,6 +29,12 @@ let lastPrimaryName = null;
 
 function createWindow() {
   const cfg = loadConfig();
+  // Size once at creation from provider detection. Runtime resizes of a
+  // transparent frameless window cause a visible rectangular outline on
+  // Windows (the setResizable toggle briefly drops the transparent surface),
+  // so we pick the height up front and never resize afterwards.
+  const have = providers.detect();
+  winH = have.claude && have.codex ? WIN_H_DUAL : WIN_H_SINGLE;
   // default to the top-right corner of the primary display
   let dx = cfg.x, dy = cfg.y;
   if (typeof dx !== 'number' || typeof dy !== 'number') {
@@ -43,6 +49,7 @@ function createWindow() {
     icon: path.join(__dirname, 'assets', 'icon.ico'),
     frame: false,
     transparent: true,
+    backgroundColor: '#00000000',
     resizable: false,
     skipTaskbar: true,
     hasShadow: false,
@@ -105,14 +112,7 @@ app.whenReady().then(() => {
     if (!win || win.isDestroyed()) return;
     try {
       const payload = providers.getPayload(loadConfig());
-      // grow/shrink the window for the secondary strip
-      const wantH = payload.secondary ? WIN_H_DUAL : WIN_H_SINGLE;
-      if (wantH !== winH) {
-        winH = wantH;
-        win.setResizable(true);
-        win.setSize(WIN_W, winH);
-        win.setResizable(false);
-      }
+      // window height is fixed at creation (see createWindow) — no runtime resize
       // rebuild tray radio state when auto-follow changes the primary
       if (payload.primaryName !== lastPrimaryName) {
         lastPrimaryName = payload.primaryName;

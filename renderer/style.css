@@ -121,7 +121,12 @@ svg { display: block; width: 100%; height: 100%; }
 #secondary {
   position: absolute; left: 10px; right: 10px; bottom: 0;
   height: 22px;
-  display: flex; align-items: center; gap: 7px;
+  /* The strip has a hard 280px outer width. Grid reserves room for both
+     controls, so intrinsic metric widths cannot push PIN past the panel. */
+  display: grid;
+  grid-template-columns: 10px 44px minmax(0, 1fr) minmax(0, 1fr) 24px 31px;
+  align-items: center;
+  gap: 4px;
   padding: 0 6px;
   border-top: 1px solid rgba(120,132,160,0.16);
   /* info area is draggable like the rest of the panel; only the two small
@@ -135,15 +140,16 @@ svg { display: block; width: 100%; height: 100%; }
   min-width: 44px;
 }
 .sec-metric {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; min-width: 0; align-items: center; gap: 3px;
   font-size: 8px; letter-spacing: .8px; color: #8a94a8; font-weight: 700;
+  white-space: nowrap;
 }
 .sec-metric b {
   font-size: 10px; color: #dfe6f2; font-variant-numeric: tabular-nums;
-  min-width: 26px; text-align: right;
+  min-width: 22px; text-align: right;
 }
 .mini-bar {
-  width: 26px; height: 5px; border-radius: 2px;
+  width: 22px; height: 5px; flex: 0 0 22px; border-radius: 2px;
   background: #0c0e14; border: 1px solid #3a4254;
   overflow: hidden; display: inline-block;
 }
@@ -169,7 +175,7 @@ svg { display: block; width: 100%; height: 100%; }
   color: #e6eeff; border-color: #6a7690;
   background: linear-gradient(180deg, #262c3a, #171b25);
 }
-#sec-swap { margin-left: auto; font-size: 11px; }
+#sec-swap { margin-left: 0; padding: 0; font-size: 11px; }
 #sec-pin { font-size: 8px; letter-spacing: 1.2px; }
 #sec-pin.pinned {
   color: #ffbe5c; border-color: rgba(255,170,60,.65);
