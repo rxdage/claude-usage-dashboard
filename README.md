@@ -202,18 +202,25 @@ request to Anthropic.
 { "officialUsage": true }
 ```
 
-**Windows note:** the Claude Desktop token cache usually **can't** be decrypted
-by a separate app, and Claude Code on Windows keeps its token in the Credential
-Manager (not a file). So on Windows you'll typically need a token explicitly:
+**Getting a token that actually works:**
 
-```powershell
-# generate a long-lived token, then set it for the widget's session
-claude setup-token
-$env:CLAUDE_CODE_OAUTH_TOKEN = "<paste the token>"
-```
+- **`claude setup-token` does NOT work** for this — its long-lived tokens lack
+  the `user:profile` scope and the usage endpoint rejects them with 403
+  (verified). The widget automatically skips such tokens.
+- **What works: a one-time full login in the Claude Code CLI.** Run `claude` in
+  a terminal, type `/login`, sign in with your Claude subscription. That writes
+  `~/.claude/.credentials.json` with the right scopes, and the widget picks it
+  up immediately. (If you only use the Claude *desktop* app, its bundled CLI
+  lives under `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\claude-code\<version>\claude.exe`
+  — run that once. Behind a proxy, `set HTTPS_PROXY=...` in the same terminal
+  first.)
+- The Claude **Desktop** token cache can't be decrypted by a separate app
+  (OS app-bound encryption), so the widget can't reuse it.
 
-(macOS/Linux with Claude Code usually work out of the box via
-`~/.claude/.credentials.json`.)
+**Expiry caveat:** the CLI login token expires after some hours. The widget
+deliberately never refreshes another app's token, so when it expires the view
+falls back to `EST` until you use the CLI again (or re-`/login`). Using the
+terminal CLI regularly keeps it fresh automatically.
 
 **Check whether it works on your machine** without opening the window:
 

@@ -163,24 +163,39 @@ function chooseToken(tokens, now = Date.now()) {
     || null;
 }
 
-function resolveClaudeToken({ safeStorage = null, now = Date.now() } = {}) {
-  const explicit = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-  if (typeof explicit === 'string' && explicit.trim()) {
-    return { token: explicit.trim(), expiresAt: null, source: 'environment' };
-  }
+// All viable credentials, best-first. Multiple sources exist because tokens
+// differ in SCOPE, not just freshness: a `claude setup-token` token (often in
+// the env var) lacks the user:profile scope the usage endpoint requires, while
+// a full-login credential (.credentials.json) has it. The fetcher walks this
+// list and skips scope-rejected tokens.
+function resolveClaudeTokens({ safeStorage = null, now = Date.now() } = {}) {
+  const out = [];
+  // full-login credentials first: they carry user:profile
   const standard = [];
   for (const file of standardCredentialFiles()) {
     const found = tokenFromCredentialObject(readJson(file), `claude-code:${file}`);
     if (found) standard.push(found);
   }
   const standardToken = chooseToken(standard, now);
-  if (standardToken) return standardToken;
+  if (standardToken) out.push(standardToken);
+
+  const explicit = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (typeof explicit === 'string' && explicit.trim()) {
+    out.push({ token: explicit.trim(), expiresAt: null, source: 'environment' });
+  }
 
   const desktop = [];
   for (const file of desktopConfigFiles()) {
     desktop.push(...entriesFromDesktopConfig(readJson(file), safeStorage, file));
   }
-  return chooseToken(desktop, now);
+  const desktopToken = chooseToken(desktop, now);
+  if (desktopToken) out.push(desktopToken);
+  return out;
+}
+
+// kept for compatibility (probe/tests): best single candidate
+function resolveClaudeToken(opts = {}) {
+  return resolveClaudeTokens(opts)[0] || null;
 }
 
 function retryAfterMs(response) {
@@ -197,7 +212,7 @@ class ClaudeOfficialUsage {
     this.safeStorage = options.safeStorage || null;
     this.fetchFn = options.fetchFn || null;
     this.now = options.now || (() => Date.now());
-    this.resolveToken = options.resolveToken || ((now) => resolveClaudeToken({
+    this.resolveTokens = options.resolveTokens || ((now) => resolveClaudeTokens({
       safeStorage: this.safeStorage,
       now,
     }));
@@ -261,17 +276,23 @@ class ClaudeOfficialUsage {
     const now = this.now();
     this.lastAttemptAt = now;
     try {
-      let credential = this.resolveToken(now);
-      if (!credential) throw new Error('claude-oauth-credentials-not-found');
+      const candidates = this.resolveTokens(now);
+      if (!candidates.length) throw new Error('claude-oauth-credentials-not-found');
 
-      let response = await this.doFetch(credential.token);
-      if (response.status === 401) {
-        const newer = this.resolveToken(this.now());
-        if (newer && newer.token !== credential.token) {
-          credential = newer;
-          response = await this.doFetch(credential.token);
+      // Try each credential in order; skip tokens rejected for auth/scope
+      // reasons (401, or 403 permission_error like a setup-token lacking
+      // user:profile) and remember the last rejection for diagnostics.
+      let response = null, credential = null, lastAuthErr = null;
+      for (const cand of candidates) {
+        const res = await this.doFetch(cand.token);
+        if (res.status === 401 || res.status === 403) {
+          lastAuthErr = `claude-usage-http-${res.status} (${cand.source})`;
+          continue;
         }
+        response = res; credential = cand;
+        break;
       }
+      if (!response) throw new Error(lastAuthErr || 'claude-usage-auth-rejected');
       if (response.status === 429) {
         const err = new Error('claude-usage-rate-limited');
         err.retryAfterMs = retryAfterMs(response);
@@ -302,6 +323,7 @@ module.exports = {
   ClaudeOfficialUsage,
   normalizeUsageResponse,
   resolveClaudeToken,
+  resolveClaudeTokens,
   desktopConfigFiles,
   clampPct,
   resetMs,
