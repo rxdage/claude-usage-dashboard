@@ -19,6 +19,11 @@ html, body {
     0 8px 26px rgba(0,0,0,0.65);
   -webkit-app-region: drag;
   overflow: hidden;
+}
+body.dual #panel { height: 140px; }
+
+#main-row {
+  height: 118px;
   display: flex;
   align-items: center;
 }
@@ -111,3 +116,42 @@ svg { display: block; width: 100%; height: 100%; }
   margin-left: auto; font-size: 12px; color: #2a3140; transition: all .4s;
 }
 .lamp.on { color: #5cff8f; text-shadow: 0 0 8px rgba(90,255,140,.9); }
+
+/* ---- secondary provider strip (shown when both Claude & Codex exist) ---- */
+#secondary {
+  position: absolute; left: 10px; right: 10px; bottom: 0;
+  height: 22px;
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 6px;
+  border-top: 1px solid rgba(120,132,160,0.16);
+  cursor: pointer;
+  -webkit-app-region: no-drag;   /* must be clickable, not draggable */
+  transition: background .15s;
+}
+#secondary:hover { background: rgba(120,150,200,0.06); }
+#secondary.hidden { display: none; }
+.sec-live { font-size: 9px; color: #2a3140; transition: color .4s; }
+.sec-live.on { color: #5cff8f; text-shadow: 0 0 6px rgba(90,255,140,.8); }
+.sec-name {
+  font-size: 9px; font-weight: 700; letter-spacing: 1.2px; color: #aeb7ca;
+  min-width: 44px;
+}
+.sec-metric {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 8px; letter-spacing: .8px; color: #8a94a8; font-weight: 700;
+}
+.sec-metric b {
+  font-size: 10px; color: #dfe6f2; font-variant-numeric: tabular-nums;
+  min-width: 26px; text-align: right;
+}
+.mini-bar {
+  width: 26px; height: 5px; border-radius: 2px;
+  background: #0c0e14; border: 1px solid #3a4254;
+  overflow: hidden; display: inline-block;
+}
+.mini-bar i {
+  display: block; height: 100%;
+  transition: width .6s cubic-bezier(.3,1,.4,1), background .4s;
+}
+.sec-swap { margin-left: auto; font-size: 11px; color: #56617a; }
+#secondary:hover .sec-swap { color: #aab7d4; }

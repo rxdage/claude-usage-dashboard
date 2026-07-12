@@ -132,6 +132,8 @@ class CodexScanner {
     return {
       provider: 'codex',
       active: hasData,
+      lastActivity,
+      _sec: { sessionPct: hasData ? primUsed : null, weeklyPct: hasData ? secUsed : null },
       tach: {
         pct: primUsed,
         text: hasData ? Math.round(primUsed) + '%' : 'IDLE',

@@ -1,5 +1,7 @@
-// Provider orchestrator: detects Claude Code and Codex CLI local data, produces
-// a single normalized payload the renderer consumes regardless of source.
+// Provider orchestrator: detects Claude Code and Codex CLI local data and
+// produces one normalized payload. When both exist, the PRIMARY provider is
+// chosen by auto-follow (most recent activity, with hysteresis) unless pinned,
+// and the other provider is summarized in a compact `secondary` strip.
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -7,6 +9,10 @@ const { UsageScanner } = require('./usage');           // Claude
 const { CodexScanner, available: codexAvailable } = require('./providers/codex');
 
 const CLAUDE_PROJECTS = path.join(os.homedir(), '.claude', 'projects');
+// Don't flip the primary until the other provider has been the newer one by
+// this margin — prevents flapping when both tools are in use at once.
+const FOLLOW_HYSTERESIS_MS = 30000;
+
 function claudeAvailable() {
   try { return fs.statSync(CLAUDE_PROJECTS).isDirectory(); } catch { return false; }
 }
@@ -27,7 +33,7 @@ const countdownDays = (ms) => {
   return `${Math.floor(ms / 60000)}m`;
 };
 
-// Map the Claude scanner's stats into the normalized payload.
+// Map the Claude scanner's raw stats into the normalized payload.
 function claudePayload(s) {
   const bar = (remainingPct, label, usedTokens, usedPct, shareTone, uncalSuffix) => {
     if (remainingPct != null) {
@@ -41,6 +47,11 @@ function claudePayload(s) {
   return {
     provider: 'claude',
     active: s.active,
+    lastActivity: s.lastActivity || null,
+    _sec: {
+      sessionPct: s.active ? s.sessionPct : 0,
+      weeklyPct: s.weeklyRemainingPct != null ? 100 - s.weeklyRemainingPct : null,
+    },
     tach: {
       pct: s.sessionPct,
       text: s.active ? Math.round(s.sessionPct) + '%' : 'IDLE',
@@ -64,41 +75,68 @@ class Providers {
   constructor() {
     this.claude = null;
     this.codex = null;
+    this.lastPrimary = null; // sticky auto-follow state
   }
+
   detect() {
     return { claude: claudeAvailable(), codex: codexAvailable() };
   }
-  // decide which provider to render given config + availability
-  resolve(config) {
-    const have = this.detect();
-    const pref = (config && config.provider) || 'auto';
-    if (pref === 'claude' && have.claude) return 'claude';
-    if (pref === 'codex' && have.codex) return 'codex';
-    // auto (or preferred one unavailable)
-    if (have.claude && have.codex) {
-      return (config && config.activeProvider === 'codex') ? 'codex' : 'claude';
-    }
-    if (have.codex && !have.claude) return 'codex';
-    return 'claude'; // default / nothing detected -> Claude idle view
-  }
-  getPayload(config) {
-    const which = this.resolve(config);
-    if (which === 'codex') {
-      if (!this.codex) this.codex = new CodexScanner();
-      const p = this.codex.getStats();
-      p.available = this.detect();
-      return p;
-    }
-    if (!this.claude) this.claude = new UsageScanner();
-    const p = claudePayload(this.claude.getStats(config));
-    p.available = this.detect();
-    return p;
-  }
-  // expose the raw Claude scanner for the calibration dialog
+
   claudeScanner() {
     if (!this.claude) this.claude = new UsageScanner();
     return this.claude;
   }
+  codexScanner() {
+    if (!this.codex) this.codex = new CodexScanner();
+    return this.codex;
+  }
+
+  // mode: 'auto' (follow activity) | 'claude' | 'codex' (pinned)
+  static modeFrom(config) {
+    const m = config && (config.providerMode || config.activeProvider);
+    return m === 'claude' || m === 'codex' ? m : 'auto';
+  }
+
+  // Decide the primary among available providers, honoring pin + hysteresis.
+  pickPrimary(mode, have, clPayload, cxPayload) {
+    if (have.claude && !have.codex) return 'claude';
+    if (have.codex && !have.claude) return 'codex';
+    if (!have.claude && !have.codex) return 'claude'; // idle default view
+    if (mode === 'claude' || mode === 'codex') return mode;
+    // auto-follow with hysteresis
+    const a = (clPayload && clPayload.lastActivity) || 0;
+    const b = (cxPayload && cxPayload.lastActivity) || 0;
+    if (!this.lastPrimary) {
+      this.lastPrimary = b > a ? 'codex' : 'claude';
+    } else if (this.lastPrimary === 'claude' && b > a + FOLLOW_HYSTERESIS_MS) {
+      this.lastPrimary = 'codex';
+    } else if (this.lastPrimary === 'codex' && a > b + FOLLOW_HYSTERESIS_MS) {
+      this.lastPrimary = 'claude';
+    }
+    return this.lastPrimary;
+  }
+
+  getPayload(config) {
+    const have = this.detect();
+    const mode = Providers.modeFrom(config);
+    const cl = have.claude ? claudePayload(this.claudeScanner().getStats(config)) : null;
+    const cx = have.codex ? this.codexScanner().getStats() : null;
+
+    const primaryName = this.pickPrimary(mode, have, cl, cx);
+    let primary = primaryName === 'codex' ? cx : cl;
+    if (!primary) primary = cl || cx || claudePayload(this.claudeScanner().getStats(config));
+
+    const other = primaryName === 'codex' ? cl : cx;
+    const secondary = (have.claude && have.codex && other) ? {
+      provider: other.provider,
+      label: other.provider === 'codex' ? 'CODEX' : 'CLAUDE',
+      sessionPct: other._sec ? other._sec.sessionPct : null,
+      weeklyPct: other._sec ? other._sec.weeklyPct : null,
+      live: !!other.live,
+    } : null;
+
+    return { ...primary, mode, primaryName, secondary, available: have };
+  }
 }
 
-module.exports = { Providers };
+module.exports = { Providers, claudePayload };

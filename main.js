@@ -9,7 +9,8 @@ const { Providers } = require('./providers');
 const CONFIG_PATH = app.isPackaged
   ? path.join(app.getPath('userData'), 'config.json')
   : path.join(__dirname, 'config.json');
-const WIN_W = 300, WIN_H = 118;
+const WIN_W = 300, WIN_H_SINGLE = 118, WIN_H_DUAL = 140;
+let winH = WIN_H_SINGLE; // current height (grows when the secondary strip shows)
 const SNAP = 26; // px: distance to a screen edge that triggers magnetic snap
 
 function loadConfig() {
@@ -24,6 +25,7 @@ let tray = null;
 let calWin = null;
 let providers = null;
 let pushStats = null;
+let lastPrimaryName = null;
 
 function createWindow() {
   const cfg = loadConfig();
@@ -36,7 +38,7 @@ function createWindow() {
   }
   win = new BrowserWindow({
     width: WIN_W,
-    height: WIN_H,
+    height: winH,
     x: dx, y: dy,
     icon: path.join(__dirname, 'assets', 'icon.ico'),
     frame: false,
@@ -68,7 +70,7 @@ function createWindow() {
       if (Math.abs(x - area.x) <= SNAP) nx = area.x;
       else if (Math.abs((x + WIN_W) - (area.x + area.width)) <= SNAP) nx = area.x + area.width - WIN_W;
       if (Math.abs(y - area.y) <= SNAP) ny = area.y;
-      else if (Math.abs((y + WIN_H) - (area.y + area.height)) <= SNAP) ny = area.y + area.height - WIN_H;
+      else if (Math.abs((y + winH) - (area.y + area.height)) <= SNAP) ny = area.y + area.height - winH;
       if (nx !== x || ny !== y) win.setPosition(nx, ny);
       const c = loadConfig();
       c.x = nx; c.y = ny;
@@ -103,6 +105,19 @@ app.whenReady().then(() => {
     if (!win || win.isDestroyed()) return;
     try {
       const payload = providers.getPayload(loadConfig());
+      // grow/shrink the window for the secondary strip
+      const wantH = payload.secondary ? WIN_H_DUAL : WIN_H_SINGLE;
+      if (wantH !== winH) {
+        winH = wantH;
+        win.setResizable(true);
+        win.setSize(WIN_W, winH);
+        win.setResizable(false);
+      }
+      // rebuild tray radio state when auto-follow changes the primary
+      if (payload.primaryName !== lastPrimaryName) {
+        lastPrimaryName = payload.primaryName;
+        buildTrayMenu();
+      }
       win.webContents.send('stats', payload);
     } catch (err) {
       win.webContents.send('stats-error', String(err));
@@ -126,14 +141,22 @@ app.whenReady().then(() => {
     }, 2500);
   }
 
-  // Debug: `electron . --shot=<path>` captures the rendered widget and exits
+  // Debug: `electron . --shot=<path>` captures the rendered widget and exits.
+  // Add --click-swap to click the secondary strip first (tests the swap path).
   const shotArg = process.argv.find((a) => a.startsWith('--shot='));
   if (shotArg) {
     const out = shotArg.slice('--shot='.length);
+    const doSwap = process.argv.includes('--click-swap');
     setTimeout(async () => {
       try {
+        if (doSwap) {
+          await win.webContents.executeJavaScript(
+            "document.getElementById('secondary').click(); 'clicked'");
+          await new Promise((r) => setTimeout(r, 1500)); // let IPC + repush land
+        }
         const img = await win.webContents.capturePage();
         fs.writeFileSync(out, img.toPNG());
+        console.log('SHOT_OK bounds=' + JSON.stringify(win.getBounds()));
       } catch (e) { console.error(e); }
       app.quit();
     }, 3500);
@@ -144,23 +167,28 @@ function buildTrayMenu() {
   if (!tray) return;
   const have = providers.detect();
   const cfg = loadConfig();
-  const active = providers.resolve(cfg);
+  const mode = require('./providers').Providers.modeFrom(cfg);
   const items = [
     { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
   ];
-  // provider switch only when both data sources exist
+  // provider selection only matters when both data sources exist
   if (have.claude && have.codex) {
+    const followLabel = lastPrimaryName
+      ? `Auto-follow (now: ${lastPrimaryName === 'codex' ? 'Codex' : 'Claude'})`
+      : 'Auto-follow';
     items.push({
       label: 'Data source',
       submenu: [
-        { label: 'Claude Code', type: 'radio', checked: active === 'claude',
-          click: () => setProvider('claude') },
-        { label: 'Codex', type: 'radio', checked: active === 'codex',
-          click: () => setProvider('codex') },
+        { label: followLabel, type: 'radio', checked: mode === 'auto',
+          click: () => setProviderMode('auto') },
+        { label: 'Pin Claude Code', type: 'radio', checked: mode === 'claude',
+          click: () => setProviderMode('claude') },
+        { label: 'Pin Codex', type: 'radio', checked: mode === 'codex',
+          click: () => setProviderMode('codex') },
       ],
     });
   }
-  if (active === 'claude') {
+  if (have.claude) {
     items.push({ label: 'Calibrate…', click: () => openCalibrateWindow() });
   }
   items.push(
@@ -174,10 +202,10 @@ function buildTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
-function setProvider(name) {
+function setProviderMode(mode) {
   const c = loadConfig();
-  c.provider = 'auto';       // keep auto-detect, but remember the chosen active one
-  c.activeProvider = name;
+  c.providerMode = mode;
+  delete c.provider; delete c.activeProvider; // legacy keys
   saveConfig(c);
   if (pushStats) pushStats();
   buildTrayMenu();
@@ -232,6 +260,14 @@ ipcMain.handle('cal:apply', (_e, pct) => {
 });
 
 ipcMain.on('cal:close', () => { if (calWin && !calWin.isDestroyed()) calWin.close(); });
+
+// Clicking the secondary strip pins the OTHER provider as primary.
+// (Pin rather than plain swap: with auto-follow on, an un-pinned swap would be
+// reverted by the next activity tick, which reads as "the click didn't work".)
+ipcMain.on('swap-provider', () => {
+  const other = lastPrimaryName === 'codex' ? 'claude' : 'codex';
+  setProviderMode(other);
+});
 
 ipcMain.on('close-app', () => app.quit());
 ipcMain.on('hide-app', () => win && win.hide());

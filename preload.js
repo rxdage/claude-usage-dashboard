@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onStatsError: (cb) => ipcRenderer.on('stats-error', (_e, msg) => cb(msg)),
   close: () => ipcRenderer.send('close-app'),
   hide: () => ipcRenderer.send('hide-app'),
+  swapProvider: () => ipcRenderer.send('swap-provider'),
   // calibration dialog
   calGetCurrent: () => ipcRenderer.invoke('cal:getCurrent'),
   calApply: (pct) => ipcRenderer.invoke('cal:apply', pct),

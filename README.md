@@ -19,10 +19,13 @@ it reads your local transcripts. No network, no credentials touched.
 
 **Works with both [Claude Code](https://claude.com/claude-code) and
 [OpenAI Codex CLI](https://github.com/openai/codex).** It auto-detects whichever you
-have (`~/.claude/projects` and/or `~/.codex/sessions`); if you use both, switch via
-the tray **Data source** menu.
+have (`~/.claude/projects` and/or `~/.codex/sessions`). **Use both?** The main
+cluster **auto-follows whichever tool you used last** (30s hysteresis so it doesn't
+flap), while a slim strip at the bottom always shows the other one's 5-hour and
+weekly usage. Click the strip to swap (this pins the choice); tray → **Data
+source** → *Auto-follow* to hand control back.
 
-一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**,自动识别你装了哪个;两个都用可在托盘「Data source」里切换。
+一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。数据**完全本地**,不联网、不碰凭据。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量;点细条即可互换(会锁定),托盘「Data source → Auto-follow」恢复自动跟随。
 
 ![preview](docs/preview.png)
 

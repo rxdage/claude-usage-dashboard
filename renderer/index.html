@@ -12,6 +12,7 @@
       <button id="btn-close" title="退出">×</button>
     </div>
 
+    <div id="main-row">
     <div id="gauge-session"></div>
 
     <div id="side">
@@ -37,6 +38,15 @@
         <span class="foot-item"><b id="foot-right-val">--</b><i id="foot-right-label">wk reset</i></span>
         <span class="lamp" id="lamp-live">●</span>
       </div>
+    </div>
+    </div><!-- /main-row -->
+
+    <div id="secondary" class="hidden" title="点击切换主显示 / click to switch">
+      <span class="sec-live" id="sec-live">●</span>
+      <span class="sec-name" id="sec-name">CODEX</span>
+      <span class="sec-metric">5H <span class="mini-bar"><i id="sec-s-fill"></i></span><b id="sec-s">–</b></span>
+      <span class="sec-metric">WK <span class="mini-bar"><i id="sec-w-fill"></i></span><b id="sec-w">–</b></span>
+      <span class="sec-swap">⇄</span>
     </div>
   </div>
   <script src="renderer.js"></script>

@@ -121,6 +121,34 @@ function applyBar(fill, nameId, valId, b) {
   val.textContent = b.valText;
 }
 
+function usedColor(pct) {
+  if (pct == null) return '#3a4254';
+  if (pct < 60) return 'linear-gradient(90deg,#2fd06b,#7dffb0)';
+  if (pct < 85) return 'linear-gradient(90deg,#e0a92a,#ffd76a)';
+  return 'linear-gradient(90deg,#ff3b30,#ff8a6a)';
+}
+
+function renderSecondary(sec) {
+  const strip = $('secondary');
+  if (!sec) {
+    strip.classList.add('hidden');
+    document.body.classList.remove('dual');
+    return;
+  }
+  strip.classList.remove('hidden');
+  document.body.classList.add('dual');
+  $('sec-name').textContent = sec.label;
+  $('sec-live').classList.toggle('on', !!sec.live);
+  const setMetric = (valId, fillId, pct) => {
+    $(valId).textContent = pct == null ? '–' : Math.round(pct) + '%';
+    const f = $(fillId);
+    f.style.width = pct == null ? '0%' : Math.max(0, Math.min(100, pct)) + '%';
+    f.style.background = usedColor(pct);
+  };
+  setMetric('sec-s', 'sec-s-fill', sec.sessionPct);
+  setMetric('sec-w', 'sec-w-fill', sec.weeklyPct);
+}
+
 // consumes the normalized payload produced by providers.js (Claude or Codex)
 function render(p) {
   tach.set(p.tach.pct / 100);
@@ -143,6 +171,8 @@ function render(p) {
   const lamp = $('lamp-live');
   lamp.style.color = '';
   lamp.classList.toggle('on', !!p.live);
+
+  renderSecondary(p.secondary);
 }
 
 if (window.electronAPI) {
@@ -155,6 +185,7 @@ if (window.electronAPI) {
   });
   $('btn-close').addEventListener('click', () => window.electronAPI.close());
   $('btn-hide').addEventListener('click', () => window.electronAPI.hide());
+  $('secondary').addEventListener('click', () => window.electronAPI.swapProvider());
 } else {
   // browser demo (normalized payload)
   let t = 0;
@@ -171,6 +202,8 @@ if (window.electronAPI) {
         { label: 'ALL', wk: true, fillPct: 61, tone: 'remaining', valText: '61% left' },
       ],
       footer: { left: { val: '$8.62', label: 'today' }, right: { val: '2d 9h', label: 'wk reset' } },
+      secondary: { provider: 'codex', label: 'CODEX',
+        sessionPct: 20 + 15 * Math.sin(t / 2), weeklyPct: 8, live: true },
     });
   }, 700);
 }
