@@ -11,4 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   calGetCurrent: () => ipcRenderer.invoke('cal:getCurrent'),
   calApply: (pct) => ipcRenderer.invoke('cal:apply', pct),
   calClose: () => ipcRenderer.send('cal:close'),
+  // official-usage setup wizard
+  setupState: () => ipcRenderer.invoke('setup:state'),
+  setupLogin: () => ipcRenderer.invoke('setup:login'),
+  setupEnable: () => ipcRenderer.invoke('setup:enable'),
+  setupClose: () => ipcRenderer.send('setup:close'),
 });

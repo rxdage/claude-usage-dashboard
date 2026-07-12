@@ -73,6 +73,7 @@ function claudeLocalPayload(s) {
       sub: s.active ? `${fmtTok(s.sessionTokens)} · ${countdown(s.resetInMs)}` : '5h window',
       red: s.active && s.sessionPct >= 80,
       label: 'CLAUDE·5H',
+      src: 'local',
     },
     bars: [
       bar(s.fableRemainingPct, 'FABLE·5', s.fableWeekTokens, fableShare, 'info-amber', ' · set limit'),
@@ -144,6 +145,7 @@ function claudePayload(s, official = null) {
       sub: activeOrServer ? `${sourceTag} · ${countdown(sessionResetInMs)}` : '5h window',
       red: activeOrServer && sessionPct >= 80,
       label: 'CLAUDE·5H',
+      src: exact ? 'server' : hasServer ? 'stale' : 'est',
     },
     bars: [modelBar, weeklyBar],
     footer: {

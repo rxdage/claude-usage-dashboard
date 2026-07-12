@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Official usage setup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body { height: 100%; font-family: "Bahnschrift", "Segoe UI", sans-serif; color: #e7edf6;
+    background: radial-gradient(ellipse 120% 100% at 30% 0%, #1a1e26, #0b0d12 70%, #06070a); }
+  body { padding: 18px 20px; display: flex; flex-direction: column; }
+  h1 { font-size: 15px; font-weight: 700; color: #ffd27a; margin-bottom: 4px; }
+  .lead { font-size: 11px; color: #9aa4b8; line-height: 1.5; margin-bottom: 14px; }
+  .steps { display: flex; flex-direction: column; gap: 9px; margin-bottom: 14px; }
+  .step { display: flex; gap: 9px; align-items: flex-start; font-size: 11.5px; line-height: 1.4; }
+  .dot { flex: 0 0 16px; height: 16px; margin-top: 1px; border-radius: 50%; border: 1px solid #3d4557;
+    background: #12151d; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #6b7488; }
+  .step.done .dot { background: #1c5230; border-color: #3a8f57; color: #dfffe9; }
+  .step.active .dot { border-color: #7fb0ff; color: #cfe0ff; box-shadow: 0 0 8px rgba(90,150,255,.35); }
+  .step .txt b { color: #dfe6f2; font-weight: 700; }
+  .step .txt .sub { color: #8a94a8; font-size: 10px; }
+  .step.done .txt b { color: #7dffb0; }
+  .status { font-size: 11px; text-align: center; min-height: 14px; margin: 4px 0 10px; color: #9aa4b8; }
+  .status.ok { color: #5cff8f; }
+  .status.warn { color: #ffbe5c; }
+  .status.err { color: #ff8a6a; }
+  .btns { margin-top: auto; display: flex; gap: 8px; }
+  button { flex: 1; height: 34px; border-radius: 7px; border: 1px solid #3a4050; cursor: pointer;
+    font-size: 12px; font-weight: 600; transition: all .15s; }
+  #primary { background: linear-gradient(180deg, #2f7d4a, #1c5230); color: #dfffe9; border-color: #3a8f57; }
+  #primary:hover:not(:disabled) { background: linear-gradient(180deg, #38945a, #226139); }
+  #primary:disabled { opacity: .5; cursor: default; }
+  #close { background: linear-gradient(180deg, #262b36, #14171e); color: #aab3c6; flex: 0 0 90px; }
+  #close:hover { color: #fff; }
+  code { color: #ffbe5c; background: #0d0f15; padding: 0 3px; border-radius: 3px; font-size: 10.5px; }
+</style>
+</head>
+<body>
+  <h1>Official Claude usage</h1>
+  <div class="lead">
+    Show Anthropic's <b>exact</b> usage numbers (SERVER) instead of the local
+    estimate. This signs you in with your Claude subscription; the token is used
+    only to read <code>/usage</code> and is never shown or sent anywhere else.
+  </div>
+
+  <div class="steps">
+    <div class="step" id="s-cli"><span class="dot">1</span><span class="txt"><b>Find Claude CLI</b><div class="sub" id="s-cli-sub">checking…</div></span></div>
+    <div class="step" id="s-login"><span class="dot">2</span><span class="txt"><b>Sign in</b><div class="sub" id="s-login-sub">Claude subscription, via your browser</div></span></div>
+    <div class="step" id="s-verify"><span class="dot">3</span><span class="txt"><b>Verify official data</b><div class="sub" id="s-verify-sub">waiting for sign-in</div></span></div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="btns">
+    <button id="close">Close</button>
+    <button id="primary" disabled>Sign in</button>
+  </div>
+
+  <script src="setup-ui.js"></script>
+</body>
+</html>

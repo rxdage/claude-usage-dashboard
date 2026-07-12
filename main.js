@@ -1,7 +1,9 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell, safeStorage, net } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell, safeStorage, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { Providers } = require('./providers');
+const { credentialStatus } = require('./providers/claude');
 
 // In a packaged build __dirname lives inside the read-only asar, so config must
 // live in userData. In dev (npm start) keep it in the project dir so `npm run
@@ -23,9 +25,68 @@ function saveConfig(cfg) {
 let win = null;
 let tray = null;
 let calWin = null;
+let setupWin = null;
 let providers = null;
 let pushStats = null;
 let lastPrimaryName = null;
+
+// Locate the Claude Code CLI: PATH, then the desktop app's bundled copy under
+// %LOCALAPPDATA%\Packages\Claude_*\...\claude-code\<version>\claude.exe (newest).
+function findClaudeCli() {
+  const out = [];
+  const bases = [];
+  const LA = process.env.LOCALAPPDATA, AD = process.env.APPDATA;
+  if (LA) {
+    try {
+      for (const d of fs.readdirSync(path.join(LA, 'Packages'), { withFileTypes: true })) {
+        if (d.isDirectory() && /^Claude_/i.test(d.name)) {
+          bases.push(path.join(LA, 'Packages', d.name, 'LocalCache', 'Roaming', 'Claude', 'claude-code'));
+        }
+      }
+    } catch {}
+  }
+  if (AD) bases.push(path.join(AD, 'Claude', 'claude-code'));
+  const cmp = (a, b) => b.localeCompare(a, undefined, { numeric: true }); // newest first
+  for (const base of bases) {
+    let vers = [];
+    try { vers = fs.readdirSync(base).filter((v) => { try { return fs.existsSync(path.join(base, v, 'claude.exe')); } catch { return false; } }); } catch {}
+    vers.sort(cmp);
+    for (const v of vers) out.push(path.join(base, v, 'claude.exe'));
+  }
+  return out[0] || null;
+}
+
+// Resolve the system proxy for Anthropic (so the spawned CLI works behind Clash
+// etc., the exact thing that 403'd the manual attempt).
+async function systemProxy() {
+  try {
+    const r = await session.defaultSession.resolveProxy('https://api.anthropic.com');
+    const m = /PROXY\s+([^;]+)/i.exec(r || '');
+    if (m) return 'http://' + m[1].trim();
+  } catch {}
+  return null;
+}
+
+// Open a visible terminal that signs in via `claude auth login --claudeai`
+// (opens the browser automatically — no /login typing), with the proxy injected.
+async function launchClaudeLogin() {
+  const cli = findClaudeCli();
+  if (!cli) throw new Error('claude-cli-not-found');
+  const proxy = await systemProxy();
+  const bat = path.join(app.getPath('temp'), 'claude-usage-login.cmd');
+  const lines = ['@echo off', 'title Claude sign-in'];
+  if (proxy) { lines.push(`set HTTPS_PROXY=${proxy}`, `set HTTP_PROXY=${proxy}`); }
+  lines.push(
+    'echo Signing in to Claude - approve in the browser window that opens.',
+    'echo.',
+    `"${cli}" auth login --claudeai`,
+    'echo.',
+    'echo Done. You can close this window.',
+    'pause',
+  );
+  fs.writeFileSync(bat, lines.join('\r\n'));
+  spawn('cmd.exe', ['/c', 'start', '"Claude sign-in"', bat], { detached: true, stdio: 'ignore' });
+}
 
 function createWindow() {
   const cfg = loadConfig();
@@ -168,6 +229,20 @@ app.whenReady().then(async () => {
   win.webContents.on('did-finish-load', pushStats);
   setInterval(pushStats, 3000);
 
+  // Debug: `electron . --shot-setup=<path>` captures the setup wizard
+  const setupShotArg = process.argv.find((a) => a.startsWith('--shot-setup='));
+  if (setupShotArg) {
+    const out = setupShotArg.slice('--shot-setup='.length);
+    openSetupWindow();
+    setTimeout(async () => {
+      try {
+        const img = await setupWin.webContents.capturePage();
+        fs.writeFileSync(out, img.toPNG());
+      } catch (e) { console.error(e); }
+      app.quit();
+    }, 2500);
+  }
+
   // Debug: `electron . --shot-cal=<path>` captures the calibration dialog
   const calShotArg = process.argv.find((a) => a.startsWith('--shot-cal='));
   if (calShotArg) {
@@ -232,6 +307,7 @@ function buildTrayMenu() {
   }
   if (have.claude) {
     items.push({ label: 'Calibrate…', click: () => openCalibrateWindow() });
+    items.push({ label: 'Set up official usage…', click: () => openSetupWindow() });
   }
   items.push(
     { label: 'Open config folder', click: () => {
@@ -253,6 +329,65 @@ function setProviderMode(mode) {
   if (pushStats) pushStats();
   buildTrayMenu();
 }
+
+// ---- Official-usage setup wizard ----
+function openSetupWindow() {
+  if (setupWin && !setupWin.isDestroyed()) { setupWin.focus(); return; }
+  setupWin = new BrowserWindow({
+    width: 400, height: 430,
+    resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    title: 'Official usage setup',
+    alwaysOnTop: true,
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+  });
+  setupWin.setMenuBarVisibility(false);
+  setupWin.loadFile(path.join(__dirname, 'renderer', 'setup.html'));
+  setupWin.on('closed', () => { setupWin = null; });
+}
+
+// non-secret status snapshot for the wizard
+ipcMain.handle('setup:state', async () => {
+  const cred = credentialStatus();
+  const cfg = loadConfig();
+  let server = false;
+  if (cfg.officialUsage && cred.loggedIn && cred.hasProfileScope) {
+    try {
+      const p = await providers.getPayload(Object.assign({}, cfg, { officialUsage: true }));
+      server = p.dataStatus && p.dataStatus.kind === 'official';
+    } catch {}
+  }
+  return {
+    cliFound: !!findClaudeCli(),
+    proxy: await systemProxy(),
+    officialUsage: !!cfg.officialUsage,
+    loggedIn: !!cred.loggedIn,
+    hasProfileScope: !!cred.hasProfileScope,
+    accessExpired: !!cred.accessExpired,
+    refreshExpired: !!cred.refreshExpired,
+    subscriptionType: cred.subscriptionType || null,
+    server,
+  };
+});
+
+ipcMain.handle('setup:login', async () => {
+  try { await launchClaudeLogin(); return { ok: true }; }
+  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+});
+
+// enable official usage in config and force one refresh, returns the resulting kind
+ipcMain.handle('setup:enable', async () => {
+  const c = loadConfig();
+  c.officialUsage = true;
+  saveConfig(c);
+  try {
+    const p = await providers.getPayload(Object.assign({}, c, { officialUsage: true }));
+    if (pushStats) pushStats();
+    return { kind: p.dataStatus ? p.dataStatus.kind : 'estimate' };
+  } catch (e) { return { kind: 'estimate', error: String(e) }; }
+});
+
+ipcMain.on('setup:close', () => { if (setupWin && !setupWin.isDestroyed()) setupWin.close(); });
 
 // ---- Calibration dialog ----
 function openCalibrateWindow() {

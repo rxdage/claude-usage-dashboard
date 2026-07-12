@@ -250,6 +250,31 @@ function resolveClaudeToken(opts = {}) {
   return resolveClaudeTokens(opts)[0] || null;
 }
 
+// Non-secret status of the standard credential file, for the setup UI.
+function credentialStatus(now = Date.now()) {
+  for (const file of standardCredentialFiles()) {
+    const raw = readJson(file);
+    const o = raw && (raw.claudeAiOauth || raw.oauth || raw);
+    if (!o || typeof o !== 'object') continue;
+    const hasAccess = !!(o.accessToken || o.access_token);
+    if (!hasAccess) continue;
+    const scopes = Array.isArray(o.scopes) ? o.scopes : [];
+    const expRaw = o.expiresAt || o.expires_at;
+    const expiresAt = expRaw ? resetMs(Number(expRaw) || expRaw) : null;
+    const refreshRaw = o.refreshTokenExpiresAt;
+    return {
+      loggedIn: true,
+      file,
+      hasProfileScope: scopes.includes('user:profile'),
+      accessExpired: expiresAt != null && expiresAt < now,
+      hasRefreshToken: !!(o.refreshToken || o.refresh_token),
+      refreshExpired: refreshRaw ? (resetMs(Number(refreshRaw) || refreshRaw) < now) : false,
+      subscriptionType: typeof o.subscriptionType === 'string' ? o.subscriptionType : null,
+    };
+  }
+  return { loggedIn: false, hasProfileScope: false };
+}
+
 function retryAfterMs(response) {
   const raw = response && response.headers && response.headers.get('retry-after');
   if (!raw) return null;
@@ -396,6 +421,7 @@ module.exports = {
   resolveClaudeTokens,
   refreshAccessToken,
   writeBackCredential,
+  credentialStatus,
   desktopConfigFiles,
   clampPct,
   resetMs,

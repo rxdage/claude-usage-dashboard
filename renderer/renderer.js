@@ -166,6 +166,12 @@ function render(p) {
     ? 'text-shadow:0 0 10px rgba(255,60,40,.7)'
     : 'text-shadow:0 0 8px rgba(255,170,60,.55)');
   tach.sub.textContent = p.tach.sub;
+  // color the source tag so SERVER/STALE/EST is obvious at a glance
+  const SRC_COLOR = { server: '#5cff8f', stale: '#ffbe5c', est: '#c98a2a', local: '#aab4c8' };
+  const SRC_GLOW = { server: '0 0 7px rgba(90,255,140,.85)', stale: '0 0 7px rgba(255,190,90,.7)' };
+  const src = p.tach.src || 'local';
+  tach.sub.setAttribute('fill', SRC_COLOR[src] || '#aab4c8');
+  tach.sub.setAttribute('style', `font-weight:600; text-shadow:${SRC_GLOW[src] || 'none'}`);
   tach.label.textContent = p.tach.label;
 
   applyBar(bar1Fill, 'bar1-name', 'bar1-val', p.bars[0]);

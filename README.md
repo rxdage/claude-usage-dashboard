@@ -186,6 +186,14 @@ into official-usage mode. **This is off by default** because it changes the
 privacy profile: it reads your logged-in Claude OAuth token and makes a network
 request to Anthropic.
 
+**Easiest — the setup wizard:** tray → **Set up official usage…**. It finds the
+Claude CLI, injects your system proxy, opens a sign-in terminal (approve in your
+browser — no commands to type), and flips to green **✓ Connected** automatically.
+The tach's source tag then reads **`SERVER`** (green) for live official data,
+`STALE` (amber) for cached, or `EST` (dim) when it falls back to local.
+
+The rest of this section is the manual path / reference.
+
 **What it does / doesn't do**
 - Reads your Claude OAuth token from (in order) the `CLAUDE_CODE_OAUTH_TOKEN`
   env var, Claude Code's `~/.claude/.credentials.json`, or — where the OS allows

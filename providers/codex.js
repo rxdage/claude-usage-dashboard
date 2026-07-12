@@ -140,6 +140,7 @@ class CodexScanner {
         sub: hasData ? `${fmtTok(dayTokens)} · ${countdown(primNextReset - now)}` : 'no data',
         red: primUsed >= 80,
         label: 'CODEX·5H',
+        src: hasData ? 'server' : 'local', // Codex rate_limits are official
       },
       bars: [
         { label: 'WEEKLY', wk: true, fillPct: Math.max(0, 100 - secUsed), tone: 'remaining',
