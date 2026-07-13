@@ -16,8 +16,13 @@ const path = require('path');
 const os = require('os');
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
-const OAUTH_TOKEN_URL = 'https://console.anthropic.com/v1/oauth/token';
+// Verified against the real Claude Code CLI binary — console.anthropic.com
+// (used in earlier versions of this file) does not exist and never worked.
+const OAUTH_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
 const OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'; // Claude Code public client
+// Cloudflare's WAF rejects token requests with no User-Agent as 429 (looks
+// like a rate limit but isn't). The real CLI always sends one.
+const CLI_USER_AGENT = 'claude-cli/2.1.205 (external, cli)';
 const OAUTH_BETA = 'oauth-2025-04-20';
 const REFRESH_MARGIN_MS = 90 * 1000; // refresh when this close to expiry
 const ACTIVE_POLL_MS = 60 * 1000;
@@ -120,7 +125,11 @@ async function refreshAccessToken(refreshToken, fetchFn) {
   if (!refreshToken) throw new Error('refresh-token-missing');
   const res = await fetchFn(OAUTH_TOKEN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'User-Agent': CLI_USER_AGENT, // required — see CLI_USER_AGENT comment above
+    },
     body: JSON.stringify({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
