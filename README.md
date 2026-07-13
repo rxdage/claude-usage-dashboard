@@ -4,7 +4,7 @@
   <a href="https://github.com/rxdage/claude-usage-dashboard/releases/latest"><img src="https://img.shields.io/github/v/release/rxdage/claude-usage-dashboard?color=2f7d4a&label=release" alt="Latest release"></a>
   <a href="https://github.com/rxdage/claude-usage-dashboard/releases"><img src="https://img.shields.io/github/downloads/rxdage/claude-usage-dashboard/total?color=555" alt="Total downloads"></a>
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white" alt="Windows">
-  <img src="https://img.shields.io/github/license/rxdage/claude-usage-dashboard?color=blue" alt="License: MIT">
+  <img src="https://img.shields.io/badge/license-PolyForm--Noncommercial--1.0.0-blue" alt="License: PolyForm Noncommercial 1.0.0">
 </p>
 
 <p align="center">
@@ -278,4 +278,13 @@ $sc.Save()
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+**PolyForm Noncommercial License 1.0.0** — see [LICENSE](LICENSE).
+
+Personal use, research, and education are all explicitly permitted. **Commercial
+use (any use intended for or directed toward commercial advantage or monetary
+compensation) is not licensed.** If you want to use this project commercially,
+contact the author to discuss terms.
+
+> Note: releases published before this change (v1.0.0–v1.6.1) were distributed
+> under the MIT License and remain under those terms for anyone who already has
+> a copy — this change applies going forward.
