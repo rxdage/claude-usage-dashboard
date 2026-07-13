@@ -1,7 +1,7 @@
 {
   "name": "claude-usage-dashboard",
   "version": "1.6.1",
-  "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude usage (session, weekly, Fable-5) in real time — 100% local.",
+  "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude Code and OpenAI Codex usage (session, weekly) in real time — 100% local.",
   "main": "main.js",
   "author": "rxdage",
   "scripts": {

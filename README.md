@@ -13,8 +13,9 @@
   </a>
 </p>
 
-A floating "luxury-car instrument cluster" desktop widget that shows your coding-agent
-usage in real time — session (5-hour) and weekly gauges. **100% local by default**:
+A floating "luxury-car instrument cluster" desktop widget that shows your
+**Claude Code and OpenAI Codex** usage in real time — session (5-hour) and weekly
+gauges. It auto-detects whichever you use (or both). **100% local by default**:
 it reads your local transcripts, with no network and no credentials touched.
 (An optional, off-by-default [official-usage mode](#advanced-official-claude-usage-opt-in)
 can fetch Anthropic's authoritative numbers — see Advanced.)
