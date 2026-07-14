@@ -69,11 +69,11 @@ function buildTach(container) {
   // text sits ON the disc, and the needle — drawn before both — is visible
   // only in the outer scale zone (r ≈ 30..41), passing behind the readout.
   const g = el('g', { style: 'transition:transform .9s cubic-bezier(.25,1.4,.4,1)', 'transform-origin': `${c}px ${c}px` }, svg);
-  el('polygon', { points: `${c - 1.2},${c - 27} ${c + 1.2},${c - 27} ${c + 0.45},${c - (rOut - 2)} ${c - 0.45},${c - (rOut - 2)}`,
+  el('polygon', { points: `${c - 2.6},${c - 27} ${c + 2.6},${c - 27} ${c + 1.1},${c - (rOut - 2)} ${c - 1.1},${c - (rOut - 2)}`,
     fill: `url(#${id}-nd)`, filter: `url(#${id}-gl)` }, g);
   // bright core line so the needle stays readable when it sits on the redline
   el('line', { x1: c, y1: c - 28, x2: c, y2: c - (rOut - 3),
-    stroke: '#ffe2dc', 'stroke-width': 0.7, 'stroke-linecap': 'round', opacity: 0.95 }, g);
+    stroke: '#ffe2dc', 'stroke-width': 1.1, 'stroke-linecap': 'round', opacity: 0.95 }, g);
 
   const rDisc = 30;
   el('circle', { cx: c, cy: c, r: rDisc, fill: `url(#${id}-fc)` }, svg);
