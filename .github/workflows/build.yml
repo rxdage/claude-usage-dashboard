@@ -34,9 +34,14 @@ jobs:
           path: dist/*.exe
           if-no-files-found: error
 
-      - name: Publish release (tag builds only)
+      # electron-builder already published the release above (it auto-publishes
+      # to GitHub whenever GH_TOKEN is set and the build is on a tag ref) — the
+      # exe/blockmap/latest.yml assets are already uploaded there under
+      # electron-builder's own hyphen-safe naming. This step must NOT pass
+      # `files:` again, or the same binaries get re-uploaded a second time
+      # under GitHub's space-to-dot-sanitized names, duplicating every asset.
+      - name: Add generated release notes (tag builds only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
           generate_release_notes: true
