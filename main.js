@@ -91,8 +91,14 @@ async function launchClaudeLogin() {
   // is always an absolute path to cmd.exe.
   const shell = process.env.ComSpec
     || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+  // windowsVerbatimArguments: node's default arg escaping turns the pre-quoted
+  // title into \"Claude sign-in\", which cmd's quote-toggling parser mangles
+  // into an attempt to run a file named 'sign-in\'. Verbatim mode passes the
+  // exact line a human would type: start "Claude sign-in" "<bat>".
   await new Promise((resolve, reject) => {
-    const child = spawn(shell, ['/c', 'start', '"Claude sign-in"', bat], { detached: true, stdio: 'ignore' });
+    const child = spawn(shell, ['/c', `start "Claude sign-in" "${bat}"`], {
+      detached: true, stdio: 'ignore', windowsVerbatimArguments: true,
+    });
     // Without these handlers a spawn failure surfaces after this function has
     // already returned, as an uncaught exception dialog instead of an error
     // in the setup wizard.
