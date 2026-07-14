@@ -1,7 +1,9 @@
 // Compact luxury instrument cluster: one small tachometer (5h session) + two
 // segmented "fuel" bars (Fable-5 weekly, all-model weekly). Pure SVG/DOM.
 const NS = 'http://www.w3.org/2000/svg';
-const SWEEP = 260, START = -130;
+// 240° sweep (not 260): keeps the needle's extreme angles clear of the text
+// zone at the bottom of the dial — see the center-disc note in buildTach.
+const SWEEP = 240, START = -120;
 
 function el(name, attrs, parent) {
   const n = document.createElementNS(NS, name);
@@ -61,6 +63,22 @@ function buildTach(container) {
     }, svg);
   }
 
+  // Floating needle behind a central display disc (virtual-cockpit style).
+  // The needle used to run hub-to-ticks and swept straight across the digital
+  // readout at low/high percentages. Now a dark disc covers the center, the
+  // text sits ON the disc, and the needle — drawn before both — is visible
+  // only in the outer scale zone (r ≈ 30..41), passing behind the readout.
+  const g = el('g', { style: 'transition:transform .9s cubic-bezier(.25,1.4,.4,1)', 'transform-origin': `${c}px ${c}px` }, svg);
+  el('polygon', { points: `${c - 1.2},${c - 27} ${c + 1.2},${c - 27} ${c + 0.45},${c - (rOut - 2)} ${c - 0.45},${c - (rOut - 2)}`,
+    fill: `url(#${id}-nd)`, filter: `url(#${id}-gl)` }, g);
+  // bright core line so the needle stays readable when it sits on the redline
+  el('line', { x1: c, y1: c - 28, x2: c, y2: c - (rOut - 3),
+    stroke: '#ffe2dc', 'stroke-width': 0.7, 'stroke-linecap': 'round', opacity: 0.95 }, g);
+
+  const rDisc = 30;
+  el('circle', { cx: c, cy: c, r: rDisc, fill: `url(#${id}-fc)` }, svg);
+  el('circle', { cx: c, cy: c, r: rDisc, fill: 'none', stroke: '#2a3140', 'stroke-width': 1, opacity: 0.9 }, svg);
+
   const labelEl = el('text', { x: c, y: c - 15, fill: '#c2cbdb', 'font-size': 8, 'letter-spacing': 1,
     'text-anchor': 'middle', 'font-weight': 700 }, svg);
   labelEl.textContent = 'SESSION';
@@ -69,12 +87,6 @@ function buildTach(container) {
     style: 'text-shadow:0 0 8px rgba(255,170,60,.55)' }, svg);
   const subEl = el('text', { x: c, y: c + 26, fill: '#aab4c8', 'font-size': 8.5, 'font-weight': 600,
     'text-anchor': 'middle', 'letter-spacing': .3 }, svg);
-
-  const g = el('g', { style: 'transition:transform .9s cubic-bezier(.25,1.4,.4,1)', 'transform-origin': `${c}px ${c}px` }, svg);
-  el('polygon', { points: `${c - 1.4},${c + 5} ${c + 1.4},${c + 5} ${c + 0.5},${c - rInMaj} ${c - 0.5},${c - rInMaj}`,
-    fill: `url(#${id}-nd)`, filter: `url(#${id}-gl)` }, g);
-  el('circle', { cx: c, cy: c, r: 5, fill: '#1a1e28', stroke: '#4a5266', 'stroke-width': 1 }, svg);
-  el('circle', { cx: c, cy: c, r: 2.3, fill: '#2c3242' }, svg);
 
   return {
     set(frac) { g.style.transform = `rotate(${START + SWEEP * Math.max(0, Math.min(1, frac))}deg)`; },
