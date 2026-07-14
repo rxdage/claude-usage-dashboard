@@ -1,12 +1,17 @@
 {
   "name": "claude-usage-dashboard",
-  "version": "1.7.4",
+  "version": "1.8.0",
   "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude Code and OpenAI Codex usage (session, weekly) in real time — 100% local.",
   "main": "main.js",
   "author": "rxdage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rxdage/claude-usage-dashboard.git"
+  },
   "scripts": {
     "start": "electron .",
     "cal": "node calibrate.js",
+    "test": "node --test test",
     "dist": "electron-builder"
   },
   "keywords": [
@@ -20,6 +25,9 @@
     "token-usage"
   ],
   "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8"
@@ -39,6 +47,13 @@
     ],
     "asarUnpack": [
       "assets/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "rxdage",
+        "repo": "claude-usage-dashboard"
+      }
     ],
     "win": {
       "target": [

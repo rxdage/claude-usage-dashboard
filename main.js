@@ -29,6 +29,28 @@ let setupWin = null;
 let providers = null;
 let pushStats = null;
 let lastPrimaryName = null;
+let updateReadyVersion = null; // set when an update has been downloaded
+
+// ---- Auto-update (NSIS install only) ----
+// The portable exe has no install directory to update in place, and dev runs
+// have no app-update.yml — both are skipped. Downloads happen silently in the
+// background; when one is ready the tray gains a "Restart to update" item, and
+// quitting the app installs it either way (autoInstallOnAppQuit).
+function setupAutoUpdate() {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
+  let autoUpdater;
+  try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReadyVersion = (info && info.version) || null;
+    buildTrayMenu();
+  });
+  autoUpdater.on('error', () => {}); // offline/proxy hiccups are normal; next cycle retries
+  const check = () => { autoUpdater.checkForUpdates().catch(() => {}); };
+  setTimeout(check, 15 * 1000); // let the widget settle before hitting the network
+  setInterval(check, 6 * 60 * 60 * 1000);
+}
 
 // Locate the Claude Code CLI: PATH, then the desktop app's bundled copy under
 // %LOCALAPPDATA%\Packages\Claude_*\...\claude-code\<version>\claude.exe (newest).
@@ -226,6 +248,8 @@ app.whenReady().then(async () => {
     buildTrayMenu();
   } catch {}
 
+  setupAutoUpdate();
+
   // getPayload is async (official usage may await a network call). Guard against
   // overlapping ticks so a slow fetch never stacks up requests.
   let pushing = false, pushAgain = false;
@@ -338,8 +362,14 @@ function buildTrayMenu() {
       else shell.openPath(path.dirname(CONFIG_PATH));
     } },
     { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
   );
+  if (updateReadyVersion) {
+    items.push({
+      label: `Restart to update to v${updateReadyVersion}`,
+      click: () => { try { require('electron-updater').autoUpdater.quitAndInstall(); } catch {} },
+    });
+  }
+  items.push({ label: 'Quit', click: () => app.quit() });
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
