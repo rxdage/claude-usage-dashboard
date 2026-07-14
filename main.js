@@ -85,7 +85,20 @@ async function launchClaudeLogin() {
     'pause',
   );
   fs.writeFileSync(bat, lines.join('\r\n'));
-  spawn('cmd.exe', ['/c', 'start', '"Claude sign-in"', bat], { detached: true, stdio: 'ignore' });
+  // spawn('cmd.exe') resolves the bare name via PATH only — a corrupted PATH
+  // entry (e.g. "WINDOWS\system32" missing its drive letter, seen in the
+  // field) makes that ENOENT. %ComSpec% is maintained by Windows itself and
+  // is always an absolute path to cmd.exe.
+  const shell = process.env.ComSpec
+    || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+  await new Promise((resolve, reject) => {
+    const child = spawn(shell, ['/c', 'start', '"Claude sign-in"', bat], { detached: true, stdio: 'ignore' });
+    // Without these handlers a spawn failure surfaces after this function has
+    // already returned, as an uncaught exception dialog instead of an error
+    // in the setup wizard.
+    child.once('spawn', () => { child.unref(); resolve(); });
+    child.once('error', reject);
+  });
 }
 
 function createWindow() {
