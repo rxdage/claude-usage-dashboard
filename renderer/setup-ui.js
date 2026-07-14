@@ -73,7 +73,9 @@ async function refresh() {
 $('primary').addEventListener('click', async () => {
   if (done) { api.setupClose(); return; }
   loggingIn = true;
-  setStatus('A terminal opened — approve the sign-in in your browser.', '');
+  setStatus('A terminal opened — approve the sign-in in your browser. '
+    + 'If asked to paste a code there: the paste is invisible (read like a '
+    + 'password) — right-click to paste, then press Enter.', '');
   setStep('s-login', 'active', 'waiting for browser authorization…');
   const r = await api.setupLogin();
   if (!r.ok) { setStatus('Could not launch sign-in: ' + r.error, 'err'); loggingIn = false; }

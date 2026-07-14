@@ -79,6 +79,10 @@ async function launchClaudeLogin() {
   lines.push(
     'echo Signing in to Claude - approve in the browser window that opens.',
     'echo.',
+    'echo NOTE: if you are asked to paste a code, the paste will NOT appear on',
+    'echo screen - it is read like a password. Right-click the window to paste,',
+    'echo then press Enter. A blank line is normal.',
+    'echo.',
     `"${cli}" auth login --claudeai`,
     'echo.',
     'echo Done. You can close this window.',

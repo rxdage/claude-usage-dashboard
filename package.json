@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-dashboard",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude Code and OpenAI Codex usage (session, weekly) in real time — 100% local.",
   "main": "main.js",
   "author": "rxdage",
