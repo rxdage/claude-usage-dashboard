@@ -11,7 +11,7 @@
   "scripts": {
     "start": "electron .",
     "cal": "node calibrate.js",
-    "test": "node --test test",
+    "test": "node --test",
     "dist": "electron-builder"
   },
   "keywords": [
