@@ -153,6 +153,10 @@ class CodexScanner {
         right: { val: countdownDays(secNextReset - now), label: 'wk reset' },
       },
       live: lastActivity && now - lastActivity < 90000,
+      // Codex rate_limits are official server percentages -> real alert meters.
+      alertMeters: hasData
+        ? [{ label: '5-hour', usedPct: primUsed }, { label: 'Weekly', usedPct: secUsed }]
+        : [],
     };
   }
 }

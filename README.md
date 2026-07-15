@@ -157,7 +157,10 @@ Keys:
   "sessionLimit": 191.48,
   "weeklyResetDay": 1,
   "weeklyResetHour": 9,
-  "opacity": 1.0
+  "opacity": 1.0,
+  "alerts": true,
+  "alertWarnPct": 80,
+  "alertCritPct": 95
 }
 ```
 
@@ -168,6 +171,13 @@ Keys:
   default Mon 09:00 to match `/usage`'s "Resets Mon 9:00 AM". Change if your plan
   resets at a different time.
 - Set `"metric": "tokens"` to revert to raw-token counting (less accurate).
+- **Usage alerts** — when any *real* limit (an official SERVER percentage, a
+  Codex rate-limit window, or a limit you've calibrated) crosses a threshold,
+  the panel breathes a soft edge glow: amber at `alertWarnPct` (default 80%),
+  red at `alertCritPct` (default 95%). Hover the tray icon to see which limit
+  and how high. It's a quiet in-widget tell-tale — no system popups. The
+  uncalibrated auto session gauge never triggers it (it would cry wolf). Set
+  `"alerts": false` to disable.
 
 ### Two known systematic gaps
 

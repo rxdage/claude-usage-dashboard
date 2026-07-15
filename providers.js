@@ -46,6 +46,41 @@ function compactModelLabel(label) {
   return v.slice(0, 12) || 'MODEL';
 }
 
+// Meters that represent a REAL limit (official server %, or a calibrated local
+// limit) — the only ones threshold alerts fire on. Uncalibrated "share" bars
+// and the historical-max session gauge are excluded so alerts never cry wolf.
+function localAlertMeters(s) {
+  const m = [];
+  if (!s.limitIsAuto && s.active && s.sessionPct != null) {
+    m.push({ label: 'Session', usedPct: s.sessionPct });
+  }
+  if (s.fableRemainingPct != null) m.push({ label: 'Fable weekly', usedPct: 100 - s.fableRemainingPct });
+  if (s.weeklyRemainingPct != null) m.push({ label: 'Weekly', usedPct: 100 - s.weeklyRemainingPct });
+  return m;
+}
+
+// Turn the real-limit meters into an alert level. Default 80% warn / 95% crit,
+// echoing the tachometer's 80% redline. Configurable + disableable.
+function computeAlert(meters, config) {
+  const cfg = config || {};
+  if (cfg.alerts === false || !Array.isArray(meters) || !meters.length) {
+    return { level: 'none', reason: null, pct: 0 };
+  }
+  const warnAt = Number.isFinite(cfg.alertWarnPct) ? cfg.alertWarnPct : 80;
+  const critAt = Number.isFinite(cfg.alertCritPct) ? cfg.alertCritPct : 95;
+  let top = null;
+  for (const m of meters) {
+    if (m && m.usedPct != null && (!top || m.usedPct > top.usedPct)) top = m;
+  }
+  if (!top) return { level: 'none', reason: null, pct: 0 };
+  const level = top.usedPct >= critAt ? 'crit' : top.usedPct >= warnAt ? 'warn' : 'none';
+  return {
+    level,
+    reason: level === 'none' ? null : `${top.label} ${Math.round(top.usedPct)}%`,
+    pct: top.usedPct,
+  };
+}
+
 // Clean local view (opt-in official usage OFF). No SERVER/STALE/EST tags — the
 // sub line shows tokens and countdown, exactly as the fully-local widget always
 // has. This is the default.
@@ -85,6 +120,7 @@ function claudeLocalPayload(s) {
     },
     live: !!(s.lastActivity && Date.now() - s.lastActivity < 90000),
     dataStatus: { kind: 'local', source: 'local-transcript', error: null },
+    alertMeters: localAlertMeters(s),
   };
 }
 
@@ -158,6 +194,11 @@ function claudePayload(s, official = null) {
       source: official && official.source || 'local-transcript-estimate',
       error: official && official.error && official.error.message || null,
     },
+    alertMeters: hasServer ? [
+      serverSession && { label: 'Session', usedPct: serverSession.usedPct },
+      serverModel && { label: compactModelLabel(serverModel.label), usedPct: serverModel.usedPct },
+      serverWeekly && { label: 'Weekly', usedPct: serverWeekly.usedPct },
+    ].filter(Boolean) : localAlertMeters(s),
   };
 }
 
@@ -269,8 +310,11 @@ class Providers {
       live: !!other.live,
     } : null;
 
-    return { ...primary, mode, primaryName, secondary, available: have };
+    // Threshold alert reflects the primary provider (what the cluster shows).
+    const alert = computeAlert(primary.alertMeters || [], config);
+
+    return { ...primary, mode, primaryName, secondary, available: have, alert };
   }
 }
 
-module.exports = { Providers, claudePayload, usableOfficialMeter };
+module.exports = { Providers, claudePayload, usableOfficialMeter, computeAlert, localAlertMeters };

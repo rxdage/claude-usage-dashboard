@@ -199,6 +199,19 @@ function render(p) {
   lamp.classList.toggle('on', !!p.live);
 
   renderSecondary(p.secondary, p.mode);
+  renderAlert(p.alert);
+}
+
+// Edge glow when a real limit is near: amber at warn (>=80%), red at crit
+// (>=95%). The glow fades in as the level rises and settles into a slow
+// breathing pulse. Nothing pops up or blocks — it reads like a dashboard
+// tell-tale, matching the cluster's own warning language.
+function renderAlert(alert) {
+  const level = (alert && alert.level) || 'none';
+  const panel = document.getElementById('panel');
+  panel.classList.toggle('alert-warn', level === 'warn');
+  panel.classList.toggle('alert-crit', level === 'crit');
+  panel.title = level === 'none' ? '' : (alert.reason || '');
 }
 
 if (window.electronAPI) {

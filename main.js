@@ -193,9 +193,11 @@ function createWindow() {
 }
 
 // single instance: relaunching just reveals the existing widget. The usage
-// probe is a headless diagnostic and must be allowed to run alongside it.
+// probe and --shot* captures are headless diagnostics and must be allowed to
+// run alongside a normally-running instance.
 const probeUsage = process.argv.includes('--probe-usage');
-const gotLock = probeUsage || app.requestSingleInstanceLock();
+const shotMode = process.argv.some((a) => a.startsWith('--shot'));
+const gotLock = probeUsage || shotMode || app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
@@ -264,6 +266,7 @@ app.whenReady().then(async () => {
         lastPrimaryName = payload.primaryName;
         buildTrayMenu();
       }
+      updateTrayTooltip(payload.alert);
       win.webContents.send('stats', payload);
     } catch (err) {
       if (win && !win.isDestroyed()) win.webContents.send('stats-error', String(err));
@@ -322,6 +325,7 @@ app.whenReady().then(async () => {
   if (shotArg) {
     const out = shotArg.slice('--shot='.length);
     const clickArg = process.argv.find((a) => a.startsWith('--click-el='));
+    const alertArg = process.argv.find((a) => a.startsWith('--force-alert='));
     setTimeout(async () => {
       try {
         if (clickArg) {
@@ -329,6 +333,14 @@ app.whenReady().then(async () => {
           await win.webContents.executeJavaScript(
             `document.getElementById(${JSON.stringify(id)}).click(); 'clicked'`);
           await new Promise((r) => setTimeout(r, 1500)); // let IPC + repush land
+        }
+        if (alertArg) {
+          const lvl = alertArg.slice('--force-alert='.length); // 'warn' | 'crit'
+          await win.webContents.executeJavaScript(
+            `(() => { const p = document.getElementById('panel');
+               p.classList.toggle('alert-warn', ${JSON.stringify(lvl)} === 'warn');
+               p.classList.toggle('alert-crit', ${JSON.stringify(lvl)} === 'crit'); })(); 'ok'`);
+          await new Promise((r) => setTimeout(r, 1400)); // catch the glow near its breathing peak
         }
         const img = await win.webContents.capturePage();
         fs.writeFileSync(out, img.toPNG());
@@ -383,6 +395,18 @@ function buildTrayMenu() {
   }
   items.push({ label: 'Quit', click: () => app.quit() });
   tray.setContextMenu(Menu.buildFromTemplate(items));
+}
+
+// Reflect the usage alert on the tray hover tooltip so the reason is legible
+// even when the widget is behind other windows. Silent — no balloon/popup.
+function updateTrayTooltip(alert) {
+  if (!tray || tray.isDestroyed()) return;
+  const base = 'Claude Usage Dashboard';
+  const lvl = alert && alert.level;
+  const tip = (lvl === 'warn' || lvl === 'crit') && alert.reason
+    ? `${lvl === 'crit' ? '●' : '▲'} ${alert.reason} used — ${base}`
+    : base;
+  try { tray.setToolTip(tip); } catch {}
 }
 
 function setProviderMode(mode) {

@@ -36,6 +36,34 @@ body.dual #panel { height: 140px; }
   pointer-events: none;
 }
 
+/* Usage alert — a breathing inset edge glow, like a dashboard warning lamp.
+   Inset (not outer) so the panel's overflow:hidden and the transparent window
+   can't clip it. Fades in as the level rises, then breathes slowly. */
+#panel::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 16px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .5s ease;
+}
+#panel.alert-warn::after,
+#panel.alert-crit::after { opacity: 1; }
+#panel.alert-warn::after {
+  animation: alert-breathe-warn 2.8s ease-in-out infinite;
+}
+#panel.alert-crit::after {
+  animation: alert-breathe-crit 1.5s ease-in-out infinite;
+}
+@keyframes alert-breathe-warn {
+  0%, 100% { box-shadow: inset 0 0 13px 1px rgba(240,176,64,0.16); }
+  50%      { box-shadow: inset 0 0 24px 3px rgba(240,176,64,0.44); }
+}
+@keyframes alert-breathe-crit {
+  0%, 100% { box-shadow: inset 0 0 16px 1px rgba(255,74,64,0.24); }
+  50%      { box-shadow: inset 0 0 30px 5px rgba(255,74,64,0.62); }
+}
+
 #winbtns {
   position: absolute; top: 5px; right: 7px; z-index: 10;
   -webkit-app-region: no-drag;
