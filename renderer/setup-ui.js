@@ -13,6 +13,9 @@ const setStep = (id, state, sub) => {
 
 let loggingIn = false;
 let done = false;
+let verifying = false;     // an enable+probe is in flight
+let lastVerifyAt = 0;      // throttle re-verify so the 2s poll can't hammer the endpoint
+const VERIFY_COOLDOWN_MS = 20000;
 
 async function refresh() {
   if (done) return;
@@ -34,7 +37,11 @@ async function refresh() {
     return;
   }
 
-  const readyToVerify = st.loggedIn && st.hasProfileScope && !st.accessExpired;
+  // An expired ACCESS token is fine — the backend auto-refreshes it from the
+  // refresh token. Only block verify when the REFRESH token is also expired
+  // (then a real re-login is needed). Requiring !accessExpired here used to
+  // strand the wizard on "waiting for sign-in" after an overnight sleep.
+  const readyToVerify = st.loggedIn && st.hasProfileScope && !st.refreshExpired;
 
   // step 2: login
   if (st.loggedIn && st.hasProfileScope) {
@@ -47,13 +54,21 @@ async function refresh() {
     setStep('s-login', st.cliFound ? 'active' : '', 'not signed in');
   }
 
-  // step 3: verify — if creds look good but official not on/verified, enable+probe
+  // step 3: verify — enable+probe. Throttled: the 2s poll must not fire a fresh
+  // network request every tick (that would hammer the usage endpoint into 429).
   if (readyToVerify) {
-    setStep('s-verify', 'active', 'enabling…');
-    const r = await api.setupEnable();
-    if (r.kind === 'official') { done = false; return refresh(); }
-    setStep('s-verify', 'active', r.kind === 'estimate' ? 'could not reach server — will retry' : r.kind);
-    setStatus(r.kind === 'estimate' ? 'Signed in, but the usage request failed (network/proxy). Retrying…' : '', 'warn');
+    if (!verifying && Date.now() - lastVerifyAt >= VERIFY_COOLDOWN_MS) {
+      verifying = true;
+      setStep('s-verify', 'active', 'enabling…');
+      let r;
+      try { r = await api.setupEnable(); } finally { verifying = false; lastVerifyAt = Date.now(); }
+      if (r && r.kind === 'official') { done = false; return refresh(); }
+      const kind = r && r.kind;
+      setStep('s-verify', 'active', kind === 'estimate' ? 'could not reach server — will retry' : (kind || 'error'));
+      setStatus(kind === 'estimate' ? 'Signed in, but the usage request failed (network/proxy). Retrying…' : '', 'warn');
+    }
+  } else if (st.refreshExpired) {
+    setStep('s-verify', '', 'session expired — sign in again');
   } else {
     setStep('s-verify', '', 'waiting for sign-in');
   }
