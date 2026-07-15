@@ -311,6 +311,15 @@ class ClaudeOfficialUsage {
     this.inFlight = null;
   }
 
+  // Clear failure backoff so the very next getUsage() attempts immediately.
+  // Called on wake-from-sleep and after a re-login, so recovery is instant
+  // instead of waiting out an exponential backoff set by a transient failure.
+  resetBackoff() {
+    this.failures = 0;
+    this.nextPollAt = 0;
+    this.lastAttemptAt = 0;
+  }
+
   state() {
     const now = this.now();
     const ageMs = this.cache ? Math.max(0, now - this.cache.fetchedAt) : null;
@@ -412,13 +421,23 @@ class ClaudeOfficialUsage {
       this.nextPollAt = 0;
     } catch (error) {
       this.failures += 1;
-      const message = error && error.name === 'AbortError'
-        ? 'claude-usage-timeout'
+      const isTimeout = error && error.name === 'AbortError';
+      const message = isTimeout ? 'claude-usage-timeout'
         : String(error && error.message || error);
       this.lastError = { message, at: this.now() };
       const retry = error && error.retryAfterMs;
-      const exponential = Math.min(15 * 60 * 1000, 30 * 1000 * (2 ** Math.min(this.failures, 5)));
-      this.nextPollAt = this.now() + Math.max(retry || 0, exponential);
+      if (retry) {
+        // 429 with Retry-After: honor the full duration the server asked for.
+        this.nextPollAt = this.now() + retry;
+      } else {
+        // Everything else — network drops (common right after wake-from-sleep),
+        // timeouts, HTTP errors, auth — backs off no more than 60s, so the
+        // widget self-heals within a minute of connectivity returning instead
+        // of stranding for many minutes. A GET this cheap is fine to retry
+        // every 60s.
+        this.nextPollAt = this.now()
+          + Math.min(60 * 1000, 5 * 1000 * (2 ** Math.min(this.failures, 4)));
+      }
     }
   }
 }

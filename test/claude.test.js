@@ -342,3 +342,60 @@ test('getUsage does not re-fetch before the poll interval without force', async 
   await u.getUsage({ active: true, force: true });
   assert.equal(calls.length, 2);
 });
+
+// ---- wake / transient-failure recovery ----
+
+test('non-429 network failure backs off at most 60s (self-heals fast)', async () => {
+  const nowRef = { t: NOW };
+  const u = new ClaudeOfficialUsage({
+    now: () => nowRef.t,
+    resolveTokens: () => [{ token: 'at', expiresAt: NOW + 3_600_000, source: 's' }],
+    fetchFn: async () => { throw new Error('net::ERR_INTERNET_DISCONNECTED'); },
+  });
+  for (let i = 0; i < 8; i++) await u.getUsage({ force: true }); // ramp failures high
+  const backoff = u.state().nextPollAt - nowRef.t;
+  assert.ok(backoff > 0 && backoff <= 60_000, `network backoff ${backoff}ms must be <= 60s`);
+});
+
+test('resetBackoff lets the next getUsage attempt immediately', async () => {
+  const nowRef = { t: NOW };
+  let calls = 0;
+  const u = new ClaudeOfficialUsage({
+    now: () => nowRef.t,
+    resolveTokens: () => [{ token: 'at', expiresAt: NOW + 3_600_000, source: 's' }],
+    fetchFn: async () => {
+      calls++;
+      if (calls === 1) throw new Error('offline');
+      return jsonResponse(USAGE_BODY);
+    },
+  });
+  await u.getUsage({ force: true });             // fails, arms backoff
+  assert.ok(u.state().nextPollAt > nowRef.t);
+  const before = calls;
+  await u.getUsage({ active: true });            // blocked by backoff -> no fetch
+  assert.equal(calls, before);
+  u.resetBackoff();
+  const st = await u.getUsage({ active: true });  // unblocked -> fetches, succeeds
+  assert.ok(calls > before);
+  assert.ok(st.data && st.data.session);
+});
+
+test('recovers to fresh SERVER data after a blip once online again', async () => {
+  const nowRef = { t: NOW };
+  let online = false;
+  const u = new ClaudeOfficialUsage({
+    now: () => nowRef.t,
+    resolveTokens: () => [{ token: 'at', expiresAt: NOW + 3_600_000, source: 's' }],
+    fetchFn: async () => {
+      if (!online) throw new Error('ERR_NETWORK_CHANGED');
+      return jsonResponse(USAGE_BODY);
+    },
+  });
+  await u.getUsage({ force: true });
+  assert.equal(u.state().data, null);            // offline -> no data
+  online = true;
+  u.resetBackoff();                               // wake handler clears backoff
+  const st = await u.getUsage({ force: true });
+  assert.ok(st.data && st.data.session);          // recovered
+  assert.equal(st.error, null);
+});

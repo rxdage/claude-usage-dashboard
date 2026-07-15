@@ -203,6 +203,16 @@ class Providers {
     return this.codex;
   }
 
+  // Clear the official-usage failure backoff and fetch once right now. Used on
+  // wake-from-sleep and after a re-login so SERVER recovers immediately instead
+  // of waiting out a backoff left by a transient network failure. No-op if
+  // official usage was never used (no instance to reconnect).
+  async forceOfficialRefresh() {
+    if (!this._official || typeof this._official.resetBackoff !== 'function') return;
+    this._official.resetBackoff();
+    try { await this._official.getUsage({ active: true, force: true }); } catch {}
+  }
+
   // mode: 'auto' (follow activity) | 'claude' | 'codex' (pinned)
   static modeFrom(config) {
     const m = config && (config.providerMode || config.activeProvider);

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell, safeStorage, net, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, screen, shell, safeStorage, net, session, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -276,6 +276,18 @@ app.whenReady().then(async () => {
   win.webContents.on('did-finish-load', pushStats);
   setInterval(pushStats, 3000);
 
+  // Wake-from-sleep / unlock: the access token or connection may have dropped
+  // while suspended. Clear any failure backoff and re-fetch official usage right
+  // away so SERVER recovers on its own within seconds, instead of showing
+  // STALE/EST until the backoff expires or a manual restart.
+  const reconnectOfficial = () => {
+    Promise.resolve(providers && providers.forceOfficialRefresh && providers.forceOfficialRefresh())
+      .catch(() => {})
+      .finally(() => { if (pushStats) pushStats(); });
+  };
+  powerMonitor.on('resume', reconnectOfficial);
+  powerMonitor.on('unlock-screen', reconnectOfficial);
+
   // Debug: `electron . --shot-setup=<path>` captures the setup wizard
   const setupShotArg = process.argv.find((a) => a.startsWith('--shot-setup='));
   if (setupShotArg) {
@@ -424,8 +436,13 @@ ipcMain.handle('setup:state', async () => {
 });
 
 ipcMain.handle('setup:login', async () => {
-  try { await launchClaudeLogin(); return { ok: true }; }
-  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+  try {
+    await launchClaudeLogin();
+    // A fresh login wrote new credentials — clear any failure backoff so the
+    // next fetch uses them immediately (fixes "re-sign in didn't restore SERVER").
+    await providers.forceOfficialRefresh();
+    return { ok: true };
+  } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 });
 
 // enable official usage in config and force one refresh, returns the resulting kind
@@ -434,6 +451,9 @@ ipcMain.handle('setup:enable', async () => {
   c.officialUsage = true;
   saveConfig(c);
   try {
+    // resetBackoff + forced fetch, so enabling always attempts now regardless
+    // of any prior backoff state.
+    await providers.forceOfficialRefresh();
     const p = await providers.getPayload(Object.assign({}, c, { officialUsage: true }));
     if (pushStats) pushStats();
     return { kind: p.dataStatus ? p.dataStatus.kind : 'estimate' };
