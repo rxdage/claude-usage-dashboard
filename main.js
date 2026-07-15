@@ -30,6 +30,7 @@ let providers = null;
 let pushStats = null;
 let lastPrimaryName = null;
 let updateReadyVersion = null; // set when an update has been downloaded
+let updateStatus = null;       // transient tray line: 'checking…' / 'downloading vX…' / 'up to date'
 
 // ---- Auto-update (NSIS install only) ----
 // The portable exe has no install directory to update in place, and dev runs
@@ -42,11 +43,20 @@ function setupAutoUpdate() {
   try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('update-downloaded', (info) => {
-    updateReadyVersion = (info && info.version) || null;
+  autoUpdater.on('checking-for-update', () => { updateStatus = 'Checking for updates…'; buildTrayMenu(); });
+  autoUpdater.on('update-available', (info) => {
+    updateStatus = `Downloading v${(info && info.version) || '?'}…`;
     buildTrayMenu();
   });
-  autoUpdater.on('error', () => {}); // offline/proxy hiccups are normal; next cycle retries
+  autoUpdater.on('update-not-available', () => { updateStatus = 'Up to date'; buildTrayMenu(); });
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReadyVersion = (info && info.version) || null;
+    updateStatus = null; // superseded by the "Restart to update" item
+    buildTrayMenu();
+  });
+  autoUpdater.on('error', () => { // offline/proxy hiccups are normal; next cycle retries
+    if (updateStatus && updateStatus !== 'Up to date') { updateStatus = null; buildTrayMenu(); }
+  });
   const check = () => { autoUpdater.checkForUpdates().catch(() => {}); };
   setTimeout(check, 15 * 1000); // let the widget settle before hitting the network
   setInterval(check, 6 * 60 * 60 * 1000);
@@ -246,7 +256,7 @@ app.whenReady().then(async () => {
 
   try {
     tray = new Tray(path.join(__dirname, 'assets', 'icon.ico'));
-    tray.setToolTip('Claude Usage Dashboard');
+    tray.setToolTip(`Claude Usage Dashboard v${app.getVersion()}`);
     buildTrayMenu();
   } catch {}
 
@@ -356,9 +366,23 @@ function buildTrayMenu() {
   const have = providers.detect();
   const cfg = loadConfig();
   const mode = require('./providers').Providers.modeFrom(cfg);
+  // Header: current version + update state. The restart item is the only
+  // actionable one; the rest are informational (disabled but readable).
   const items = [
-    { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
+    { label: `Claude Usage Dashboard v${app.getVersion()}`, enabled: false },
   ];
+  if (updateReadyVersion) {
+    items.push({
+      label: `Restart to update to v${updateReadyVersion}`,
+      click: () => { try { require('electron-updater').autoUpdater.quitAndInstall(); } catch {} },
+    });
+  } else if (updateStatus) {
+    items.push({ label: updateStatus, enabled: false });
+  }
+  items.push(
+    { type: 'separator' },
+    { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
+  );
   // provider selection only matters when both data sources exist
   if (have.claude && have.codex) {
     const followLabel = lastPrimaryName
@@ -387,12 +411,6 @@ function buildTrayMenu() {
     } },
     { type: 'separator' },
   );
-  if (updateReadyVersion) {
-    items.push({
-      label: `Restart to update to v${updateReadyVersion}`,
-      click: () => { try { require('electron-updater').autoUpdater.quitAndInstall(); } catch {} },
-    });
-  }
   items.push({ label: 'Quit', click: () => app.quit() });
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
@@ -401,7 +419,7 @@ function buildTrayMenu() {
 // even when the widget is behind other windows. Silent — no balloon/popup.
 function updateTrayTooltip(alert) {
   if (!tray || tray.isDestroyed()) return;
-  const base = 'Claude Usage Dashboard';
+  const base = `Claude Usage Dashboard v${app.getVersion()}`;
   const lvl = alert && alert.level;
   const tip = (lvl === 'warn' || lvl === 'crit') && alert.reason
     ? `${lvl === 'crit' ? '●' : '▲'} ${alert.reason} used — ${base}`
