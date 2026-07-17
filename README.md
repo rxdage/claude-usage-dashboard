@@ -62,6 +62,29 @@ Grab the prebuilt Windows `.exe` from the
 
 Builds are produced automatically by GitHub Actions on each tagged release.
 
+### First run on Windows ("Windows protected your PC")
+
+The exe is not code-signed (signing certificates cost real money and this is a
+free noncommercial tool), so the first time you run a freshly downloaded copy
+SmartScreen shows a blue warning. This is a reputation check, not a virus
+detection:
+
+1. Click **More info**
+2. Click **Run anyway**
+
+You only see it once per downloaded file. Auto-updates installed by the app
+itself don't trigger it.
+
+**Verify your download (optional):** every release lists SHA256 checksums in
+its notes. Compare with what you downloaded:
+
+```powershell
+Get-FileHash '.\Claude-Usage-Dashboard-*-setup.exe' -Algorithm SHA256
+```
+
+If the hash matches the release notes, the file is byte-for-byte what CI built
+from the public source.
+
 ## Run from source
 
 Requires [Node.js](https://nodejs.org) 18+.
@@ -279,9 +302,13 @@ The tray/app icon is generated programmatically. Needs Python + Pillow
 python make_icon.py   # writes assets/icon-*.png and assets/icon.ico
 ```
 
-## Auto-start on login (Windows, optional)
+## Auto-start on login (Windows)
 
-Run from the project directory:
+The **installed build does this automatically** (toggle via the tray menu's
+"Start with Windows", or `"startAtLogin"` in `config.json` — see the config
+reference above).
+
+Only needed when running from source — create a Startup shortcut manually:
 
 ```powershell
 $ws = New-Object -ComObject WScript.Shell
