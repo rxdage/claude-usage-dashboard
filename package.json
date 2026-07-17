@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-dashboard",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude Code and OpenAI Codex usage (session, weekly) in real time — 100% local.",
   "main": "main.js",
   "author": "rxdage",
@@ -67,6 +67,7 @@
       "artifactName": "${productName}-${version}-${arch}-portable.${ext}"
     },
     "nsis": {
+      "include": "build/installer.nsh",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,

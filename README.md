@@ -178,6 +178,11 @@ Keys:
   and how high. It's a quiet in-widget tell-tale — no system popups. The
   uncalibrated auto session gauge never triggers it (it would cry wolf). Set
   `"alerts": false` to disable.
+- **Start with Windows** — the installed (setup.exe) build registers itself to
+  launch at login on first run. Toggle it from the tray menu ("Start with
+  Windows") or set `"startAtLogin": false`. The portable exe defaults to off
+  (the file may move around) but the same toggle works if you keep it in one
+  place. Uninstalling removes the entry.
 
 ### Two known systematic gaps
 

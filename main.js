@@ -62,6 +62,26 @@ function setupAutoUpdate() {
   setInterval(check, 6 * 60 * 60 * 1000);
 }
 
+// ---- Start with Windows ----
+// Installed (NSIS) builds register a per-user Run entry on first launch so the
+// widget survives a reboot. Overridable via the tray checkbox or
+// "startAtLogin": false in config.json. Dev runs never register; the portable
+// exe defaults OFF (the file may move) but the tray toggle still works.
+function loginItemWanted(cfg) {
+  if (!app.isPackaged) return false;
+  if (cfg.startAtLogin != null) return !!cfg.startAtLogin;
+  return !process.env.PORTABLE_EXECUTABLE_DIR; // default ON for installed builds
+}
+function syncLoginItem() {
+  if (!app.isPackaged) return;
+  const want = loginItemWanted(loadConfig());
+  try {
+    if (app.getLoginItemSettings().openAtLogin !== want) {
+      app.setLoginItemSettings({ openAtLogin: want });
+    }
+  } catch {}
+}
+
 // Locate the Claude Code CLI: PATH, then the desktop app's bundled copy under
 // %LOCALAPPDATA%\Packages\Claude_*\...\claude-code\<version>\claude.exe (newest).
 function findClaudeCli() {
@@ -261,6 +281,7 @@ app.whenReady().then(async () => {
   } catch {}
 
   setupAutoUpdate();
+  syncLoginItem();
 
   // getPayload is async (official usage may await a network call). Guard against
   // overlapping ticks so a slow fetch never stacks up requests.
@@ -403,6 +424,17 @@ function buildTrayMenu() {
   if (have.claude) {
     items.push({ label: 'Calibrate…', click: () => openCalibrateWindow() });
     items.push({ label: 'Set up official usage…', click: () => openSetupWindow() });
+  }
+  if (app.isPackaged) {
+    items.push({
+      label: 'Start with Windows', type: 'checkbox', checked: loginItemWanted(cfg),
+      click: (item) => {
+        const c = loadConfig();
+        c.startAtLogin = item.checked;
+        saveConfig(c);
+        syncLoginItem();
+      },
+    });
   }
   items.push(
     { label: 'Open config folder', click: () => {
