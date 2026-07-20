@@ -1,7 +1,7 @@
 {
   "name": "claude-usage-dashboard",
   "version": "1.9.2",
-  "description": "A floating luxury-car instrument-cluster desktop widget showing your Claude Code and OpenAI Codex usage (session, weekly) in real time — 100% local.",
+  "description": "A floating desktop widget showing Claude Code and ChatGPT/Codex Desktop plan usage in real time — 100% local.",
   "main": "main.js",
   "author": "rxdage",
   "repository": {
@@ -17,6 +17,9 @@
   "keywords": [
     "claude",
     "claude-code",
+    "chatgpt-desktop",
+    "codex-desktop",
+    "chatgpt-plan",
     "usage",
     "dashboard",
     "widget",

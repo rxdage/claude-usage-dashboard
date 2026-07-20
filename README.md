@@ -14,25 +14,27 @@
 </p>
 
 A floating "luxury-car instrument cluster" desktop widget that shows your
-**Claude Code and OpenAI Codex** usage in real time — session (5-hour) and weekly
-gauges. It auto-detects whichever you use (or both). **100% local by default**:
+**Claude Code and ChatGPT/Codex Desktop plan** usage in real time. It supports
+single-window Desktop plans as well as the older Codex CLI 5-hour + weekly layout,
+and auto-detects whichever you use (or both). **100% local by default**:
 it reads your local transcripts, with no network and no credentials touched.
 (An optional, off-by-default [official-usage mode](#advanced-official-claude-usage-opt-in)
 can fetch Anthropic's authoritative numbers — see Advanced.)
 
-**Works with both [Claude Code](https://claude.com/claude-code) and
-[OpenAI Codex CLI](https://github.com/openai/codex).** It auto-detects whichever you
-have (`~/.claude/projects` and/or `~/.codex/sessions`). **Use both?** The main
+**Works with [Claude Code](https://claude.com/claude-code), ChatGPT Desktop in
+Codex mode, Codex Desktop, and [OpenAI Codex CLI](https://github.com/openai/codex).**
+It auto-detects whichever you have (`~/.claude/projects` and/or
+`~/.codex/sessions`). **Use both providers?** The main
 cluster **auto-follows whichever tool you used last** (30s hysteresis so it doesn't
-flap), while a slim strip at the bottom always shows the other one's 5-hour and
-weekly usage. Two buttons on the strip: **⇄ swap** switches the primary at any
+flap), while a slim strip at the bottom always shows the other provider's current
+plan meters. Two buttons on the strip: **⇄ swap** switches the primary at any
 time — in auto mode it's a temporary peek (auto-follow resumes after ~5 minutes
 or on your next action; the mode is not changed), while pinned it re-pins to the
 other side. **PIN** is an independent toggle: lit amber = locked to the current
 primary, unlit = auto-follow. The tray **Data source** menu offers the same
 three modes.
 
-一个悬浮在桌面上的「豪车仪表盘」小组件,实时显示你的编码 agent 用量。**默认完全本地、不联网、不碰凭据**(有一个默认关闭的可选「官方用量」模式可拉取 Anthropic 官方数字,见 Advanced)。**同时支持 Claude Code 和 OpenAI Codex CLI**:主表盘**自动跟随你最近在用的那个**,底部细条常显另一个的 5 小时/周用量。细条右侧两个按钮:**⇄ 切换**随时对调主显且**不改变锁定状态**(auto 下是临时查看,约 5 分钟后恢复自动跟随);**PIN 锁定**独立开关(琥珀色点亮=锁定当前,熄灭=自动跟随)。
+一个悬浮在桌面上的「豪车仪表盘」小组件，实时显示你的编码 agent 用量。**默认完全本地、不联网、不碰凭据**（有一个默认关闭的可选「官方用量」模式可拉取 Anthropic 官方数字，见 Advanced）。**同时支持 Claude Code、ChatGPT Desktop 的 Codex 模式、Codex Desktop 和 Codex CLI**：Codex 仪表会按计划实际窗口自动显示，例如单个 7 天计划窗口显示为 `CODEX·7D`，旧版 CLI 的 5 小时/周双窗口仍然兼容。主表盘**自动跟随你最近在用的 provider**，底部细条常显另一个 provider 的计划用量。细条右侧两个按钮：**⇄ 切换**随时对调主显且**不改变锁定状态**（auto 下是临时查看，约 5 分钟后恢复自动跟随）；**PIN 锁定**独立开关（琥珀色点亮=锁定当前，熄灭=自动跟随）。
 
 ![preview](docs/preview.png)
 
@@ -40,17 +42,21 @@ three modes.
 > scanner is plain Node and should work cross-platform; the tray icon path and
 > the auto-start snippet are Windows-specific.
 
-### Claude Code vs Codex
+### Claude Code vs ChatGPT/Codex
 
-| | Claude Code | Codex CLI |
+| | Claude Code | ChatGPT/Codex Desktop (and CLI) |
 |---|---|---|
 | Data source | `~/.claude/projects/**.jsonl` | `~/.codex/sessions/**/rollout-*.jsonl` |
-| Gauges | 5h session · Fable-5 weekly · all-model weekly | 5h session · weekly · cache-hit |
+| Gauges | 5h session · Fable-5 weekly · all-model weekly | Plan window (for example 7d), optional short window, and cache-hit |
 | Official %? | Not stored locally — **calibrate once** (see below) | **Read directly** from the logs' `rate_limits` — no calibration needed |
 
-Codex writes the real 5-hour and weekly `used_percent` (and exact reset times) into
-its session logs, so the Codex view is exact out of the box. The Claude view needs a
-one-time calibration because Claude Code doesn't store those numbers locally.
+ChatGPT/Codex Desktop and Codex CLI write server-authoritative `used_percent`,
+`window_minutes`, and reset times into their shared local session logs. The widget
+labels each meter from its actual duration instead of assuming that `primary` always
+means 5 hours: a Desktop plan with one 7-day window therefore appears as
+`CODEX·7D` / `PLAN·7D`, while the older CLI dual-window shape remains `CODEX·5H` +
+`WEEKLY`. No Codex calibration is needed. The Claude view still needs a one-time
+calibration because Claude Code doesn't store those numbers locally.
 
 ## Download (no Node needed)
 

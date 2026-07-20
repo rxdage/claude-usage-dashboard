@@ -1,4 +1,4 @@
-// Provider orchestrator: detects Claude Code and Codex CLI local data and
+// Provider orchestrator: detects Claude Code plus ChatGPT/Codex Desktop or CLI data and
 // produces one normalized payload. When both exist, the PRIMARY provider is
 // chosen by auto-follow (most recent activity, with hysteresis) unless pinned,
 // and the other provider is summarized in a compact `secondary` strip.
