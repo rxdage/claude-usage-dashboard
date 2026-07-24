@@ -60,10 +60,16 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $notes = gh api "repos/${{ github.repository }}/releases/generate-notes" -f tag_name=$tag --jq .body
 
+          # electron-builder writes dist/*.exe using the raw productName
+          # ("Claude Usage Dashboard", with spaces), but its GitHub publisher
+          # uploads the release asset under a hyphenated name. Match that
+          # here so the filename next to each hash is what users actually see
+          # on the Releases page.
           $lines = @('## SHA256 checksums', '```')
           Get-ChildItem dist/*.exe | Sort-Object Name | ForEach-Object {
             $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
-            $lines += "$h  $($_.Name)"
+            $assetName = $_.Name -replace ' ', '-'
+            $lines += "$h  $assetName"
           }
           $lines += '```'
           $lines += ''
