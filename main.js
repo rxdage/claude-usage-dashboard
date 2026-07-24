@@ -189,6 +189,12 @@ function createWindow() {
     resizable: false,
     skipTaskbar: true,
     hasShadow: false,
+    // Windows keeps the WS_THICKFRAME resize-border style on frameless windows
+    // by default, which DWM composites as a faint gray rectangle around the
+    // window's true (square) bounds — visible outside the panel's rounded
+    // corners since the panel doesn't fill the window edge-to-edge. Frameless
+    // + not resizable, so the resize border serves no purpose; drop it.
+    thickFrame: false,
     alwaysOnTop: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
