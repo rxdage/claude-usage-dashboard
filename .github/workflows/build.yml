@@ -41,9 +41,18 @@ jobs:
       # to GitHub whenever GH_TOKEN is set and the build is on a tag ref, and
       # always creates it before this step runs) — the exe/blockmap/latest.yml
       # assets are already uploaded there under electron-builder's own
-      # hyphen-safe naming, so nothing here should re-upload `files:`.
+      # hyphen-safe naming, so nothing here should re-upload `files:`. But
+      # electron-builder creates that release as a DRAFT and does not
+      # publish it itself; something downstream has to un-draft it or it
+      # never appears on the public Releases page and electron-updater's
+      # "latest release" check never sees it (confirmed: v1.9.5 and v1.9.6
+      # shipped stuck as drafts before this comment was added — the old
+      # softprops/action-gh-release step happened to un-draft it as a side
+      # effect of its update call, which masked the requirement). The `gh
+      # release edit --draft=false` below makes that explicit instead of
+      # relying on another tool's incidental behavior.
       #
-      # The release body still needs to be set explicitly via `gh release
+      # The release body also needs to be set explicitly via `gh release
       # edit`: GitHub's REST API only honors `generate_release_notes` on
       # release *creation*, not on updates to an existing release — so a
       # softprops/action-gh-release step with generate_release_notes here
@@ -78,4 +87,4 @@ jobs:
           $lines += $notes
           $lines -join "`n" | Out-File release-notes.md -Encoding utf8
 
-          gh release edit $tag --notes-file release-notes.md
+          gh release edit $tag --notes-file release-notes.md --draft=false
