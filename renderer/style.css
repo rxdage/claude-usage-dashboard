@@ -27,31 +27,37 @@ body.dual #panel { height: 140px; }
   align-items: center;
 }
 /* Edge-dock grab handle: shown instead of the panel when the widget has been
-   dragged mostly off-screen. The window is positioned so only an 18px strip
+   dragged mostly off-screen. The window is positioned so only a 12px strip
    remains visible; the handle fills that strip, so the whole sliver is the
-   click target. Styled like the winbtns/PIN chrome, amber on hover. */
+   click target. The arch: a bright metallic tab (same family as the gauge
+   bezel) flush against the screen edge, fully rounded on the side that bulges
+   into the screen — unmissable against light or dark backdrops. */
 #dock-handle { display: none; }
 body.docked #panel { display: none; }
 body.docked #dock-handle {
-  display: flex; align-items: center; justify-content: center;
-  position: fixed; cursor: pointer;
+  display: flex; position: fixed; cursor: pointer;
   -webkit-app-region: no-drag;
 }
-body.dock-right #dock-handle { left: 0; top: 0; bottom: 0; width: 18px; }
-body.dock-left #dock-handle { right: 0; top: 0; bottom: 0; width: 18px; }
-body.dock-bottom #dock-handle { top: 0; left: 0; right: 0; height: 18px; }
+body.dock-right #dock-handle { left: 0; top: 0; bottom: 0; width: 12px; align-items: center; justify-content: flex-end; }
+body.dock-left #dock-handle { right: 0; top: 0; bottom: 0; width: 12px; align-items: center; justify-content: flex-start; }
+body.dock-bottom #dock-handle { top: 0; left: 0; right: 0; height: 12px; align-items: flex-end; justify-content: center; }
 #dock-handle span {
-  display: block; border-radius: 4px;
-  background: linear-gradient(180deg, #262b36, #14171e);
-  border: 1px solid #3a4050;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-  transition: border-color .15s, box-shadow .15s;
+  display: block;
+  background: linear-gradient(180deg, #b9c2d4 0%, #6a7488 48%, #454e60 100%);
+  border: 1px solid #7c87a0;
+  box-shadow:
+    0 0 8px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: border-color .15s, box-shadow .15s, background .15s;
 }
-body.dock-right #dock-handle span, body.dock-left #dock-handle span { width: 7px; height: 64px; }
-body.dock-bottom #dock-handle span { height: 7px; width: 64px; }
+/* flat side flush with the screen edge, arch bulging inward */
+body.dock-right #dock-handle span { width: 10px; height: 76px; border-radius: 10px 0 0 10px; border-right: none; }
+body.dock-left #dock-handle span { width: 10px; height: 76px; border-radius: 0 10px 10px 0; border-left: none; }
+body.dock-bottom #dock-handle span { height: 10px; width: 76px; border-radius: 10px 10px 0 0; border-bottom: none; }
 #dock-handle:hover span {
   border-color: #e8a33d;
-  box-shadow: 0 0 9px rgba(232,163,61,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, #d3b183 0%, #a5793e 48%, #6d4d22 100%);
+  box-shadow: 0 0 12px rgba(232, 163, 61, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 #panel::before {

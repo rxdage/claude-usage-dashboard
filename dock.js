@@ -5,7 +5,7 @@
 //
 // Top is deliberately excluded: Windows clamps drags so a window's grab area
 // can never go above the work area, so a top overflow of >=50% is unreachable.
-const HANDLE_PX = 18; // strip of the window left visible while docked
+const HANDLE_PX = 12; // strip of the window left visible while docked
 const DOCK_SIDES = ['left', 'right', 'bottom'];
 
 // Where (if anywhere) should a window dropped at bounds `b` dock?
