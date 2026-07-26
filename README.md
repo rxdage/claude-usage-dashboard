@@ -214,12 +214,13 @@ Keys:
   place. Uninstalling removes the entry.
 - **Auto-hide when idle** (on by default) — a dashboard should only glow when
   you're driving. If neither Claude Code nor Codex has produced any usage for
-  `autoHideMinutes` (default 10), the widget fades out (the tray icon stays);
-  the moment new activity is detected it fades back in, without stealing
-  focus. Watching a movie → it gets out of the way; back to coding → it's
-  there. Hiding it manually (the `–` button) keeps it hidden until you show it
-  yourself. Toggle via the tray ("Auto-hide when idle"), or set
-  `"autoHide": false` / `"autoHideMinutes": 20` in `config.json`.
+  ~10 seconds, the widget fades out (the tray icon stays); the moment new
+  activity is detected it fades back in, without stealing focus. Watching a
+  movie → it gets out of the way; back to coding → it's there. Hiding it
+  manually (the `–` button) keeps it hidden until you show it yourself.
+  Toggle via the tray ("Auto-hide when idle"), or tune it in `config.json`:
+  `"autoHide": false` disables, `"autoHideMinutes"` sets the threshold in
+  minutes (fractions allowed — `0.5` = 30s, `10` = the old lazy 10 minutes).
 
 ### Two known systematic gaps
 

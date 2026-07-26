@@ -4,7 +4,7 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { Providers } = require('./providers');
 const { credentialStatus } = require('./providers/claude');
-const { decideAutoHide } = require('./autohide');
+const { decideAutoHide, DEFAULT_IDLE_MIN } = require('./autohide');
 
 // In a packaged build __dirname lives inside the read-only asar, so config must
 // live in userData. In dev (npm start) keep it in the project dir so `npm run
@@ -46,7 +46,7 @@ function baseOpacity() {
 }
 function autoHideIdleMs() {
   const c = loadConfig();
-  const m = Number.isFinite(c.autoHideMinutes) && c.autoHideMinutes > 0 ? c.autoHideMinutes : 10;
+  const m = Number.isFinite(c.autoHideMinutes) && c.autoHideMinutes > 0 ? c.autoHideMinutes : DEFAULT_IDLE_MIN;
   return m * 60000;
 }
 function suppressAutoHide() { autoHideSuppressedUntil = Date.now() + autoHideIdleMs(); }

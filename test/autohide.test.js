@@ -8,7 +8,11 @@ const { decideAutoHide, ACTIVE_WITHIN_MS, DEFAULT_IDLE_MIN } = require('../autoh
 const NOW = 1_800_000_000_000;
 const MIN = 60000;
 
-test('hides after the default 10 minutes of silence', () => {
+test('default threshold is 10 seconds', () => {
+  assert.equal(DEFAULT_IDLE_MIN * MIN, 10000);
+});
+
+test('hides after the default 10 seconds of silence', () => {
   const d = decideAutoHide({
     enabled: true, idleMinutes: undefined,
     lastActivity: NOW - DEFAULT_IDLE_MIN * MIN, now: NOW, autoHidden: false,
@@ -19,7 +23,7 @@ test('hides after the default 10 minutes of silence', () => {
 test('stays visible while activity is recent', () => {
   const d = decideAutoHide({
     enabled: true, idleMinutes: undefined,
-    lastActivity: NOW - 2 * MIN, now: NOW, autoHidden: false,
+    lastActivity: NOW - 5000, now: NOW, autoHidden: false,
   });
   assert.equal(d, null);
 });

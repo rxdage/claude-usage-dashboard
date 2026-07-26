@@ -3,11 +3,12 @@
 // moment new usage is detected. Pure decision logic — the window/fade side
 // lives in main.js; this part is unit-tested.
 //
-// Hysteresis by design: hiding needs `idleMinutes` (default 10) of silence,
-// showing needs activity within the last 90s (the same window as the green
-// activity lamp), so the widget can't flap around the threshold.
+// Hysteresis by design: hiding needs `idleMinutes` of silence (default 10
+// SECONDS — the widget is meant to react like a dashboard lamp), showing
+// needs activity within min(90s, the idle threshold), so hide and show can
+// never both be true and the widget can't flap around the threshold.
 const ACTIVE_WITHIN_MS = 90 * 1000;
-const DEFAULT_IDLE_MIN = 10;
+const DEFAULT_IDLE_MIN = 10 / 60; // 10 seconds, expressed in minutes
 
 // -> 'hide' | 'show' | null (no change)
 function decideAutoHide({ enabled, idleMinutes, lastActivity, now, autoHidden }) {
