@@ -217,6 +217,16 @@ Keys:
   that edge, like a lit indicator lamp. Click the arch to expand it back to
   where it was. The docked state survives restarts. No timers, no magic — it
   tucks away exactly when you tuck it away.
+- **ECO switch** — the small chip in the footer flips the shown provider's
+  own built-in saver mode and lights up steady green while it's on, like a
+  car's ECO tell-tale. For Claude it sets `model: "opusplan"` in
+  `~/.claude/settings.json` (the CLI's Opus Plan Mode: Opus plans, Sonnet
+  codes); for GPT it drops `model_reasoning_effort` to `medium` in
+  `~/.codex/config.toml` (override with `"ecoCodexEffort": "low"` in the
+  widget's config). The switch is per-provider — it always controls whichever
+  provider the cluster currently shows. Turning it off restores exactly what
+  was there before. Applies to NEW CLI/app sessions; running sessions keep
+  their model.
 
 ### Two known systematic gaps
 

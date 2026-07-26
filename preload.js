@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // edge docking
   onDockState: (cb) => ipcRenderer.on('dock-state', (_e, side) => cb(side)),
   undock: () => ipcRenderer.send('undock'),
+  // ECO mode (per-provider saver switch)
+  toggleEco: () => ipcRenderer.send('toggle-eco'),
   // calibration dialog
   calGetCurrent: () => ipcRenderer.invoke('cal:getCurrent'),
   calApply: (pct) => ipcRenderer.invoke('cal:apply', pct),

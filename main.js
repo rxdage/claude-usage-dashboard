@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const { Providers } = require('./providers');
 const { credentialStatus } = require('./providers/claude');
 const { decideDock, dockBounds, DOCK_SIDES } = require('./dock');
+const { ecoStatus, setClaudeEco, setCodexEco } = require('./eco');
 
 // In a packaged build __dirname lives inside the read-only asar, so config must
 // live in userData. In dev (npm start) keep it in the project dir so `npm run
@@ -364,6 +365,12 @@ app.whenReady().then(async () => {
         buildTrayMenu();
       }
       updateTrayTooltip(payload.alert);
+      // ECO state is read fresh from the tools' own config files, so an
+      // external change (user edits settings.json themselves) shows within 3s.
+      try {
+        const eco = ecoStatus();
+        payload.eco = { on: !!eco[payload.primaryName], provider: payload.primaryName };
+      } catch { payload.eco = null; }
       win.webContents.send('stats', payload);
     } catch (err) {
       if (win && !win.isDestroyed()) win.webContents.send('stats-error', String(err));
@@ -694,6 +701,27 @@ ipcMain.on('toggle-pin', () => {
 ipcMain.on('close-app', () => app.quit());
 ipcMain.on('hide-app', () => win && win.hide());
 ipcMain.on('undock', () => undock());
+
+// ECO toggle: acts on whichever provider the cluster currently shows. The
+// pre-ECO value is stashed in our config so switching off restores exactly
+// what was there (e.g. Codex xhigh -> ECO medium -> back to xhigh).
+ipcMain.on('toggle-eco', () => {
+  try {
+    const provider = lastPrimaryName || 'claude';
+    const on = !ecoStatus()[provider];
+    const c = loadConfig();
+    c.ecoPrev = c.ecoPrev || {};
+    if (provider === 'claude') {
+      const prev = setClaudeEco(on, c.ecoPrev.claude || null);
+      if (on) c.ecoPrev.claude = prev; else delete c.ecoPrev.claude;
+    } else {
+      const prev = setCodexEco(on, c.ecoPrev.codex || null, c.ecoCodexEffort);
+      if (on) c.ecoPrev.codex = prev; else delete c.ecoPrev.codex;
+    }
+    saveConfig(c);
+  } catch {}
+  if (pushStats) pushStats();
+});
 
 // keep the app alive while only the widget is hidden; quit when the widget
 // itself is closed (calibrate window closing must not quit the app)

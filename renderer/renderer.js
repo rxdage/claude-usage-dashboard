@@ -198,8 +198,23 @@ function render(p) {
   lamp.style.color = '';
   lamp.classList.toggle('on', !!p.live);
 
+  renderEco(p.eco);
   renderSecondary(p.secondary, p.mode);
   renderAlert(p.alert);
+}
+
+// ECO tell-tale: steady green when the shown provider's saver mode is on.
+// The tooltip names the exact knob so the effect is never a mystery.
+function renderEco(eco) {
+  const el = $('eco-lamp');
+  if (!eco) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.classList.toggle('on', !!eco.on);
+  el.title = eco.provider === 'codex'
+    ? (eco.on ? 'ECO on · GPT reasoning effort: medium (new sessions) — click to restore'
+              : 'ECO off · click to drop GPT reasoning effort to medium (new sessions)')
+    : (eco.on ? 'ECO on · Claude opusplan: Opus plans, Sonnet codes (new sessions) — click to restore'
+              : 'ECO off · click to enable Claude opusplan: Opus plans, Sonnet codes (new sessions)');
 }
 
 // Edge glow when a real limit is near: amber at warn (>=80%), red at crit
@@ -238,6 +253,7 @@ if (window.electronAPI) {
   };
   guardedClick('sec-swap', () => window.electronAPI.swapProvider());
   guardedClick('sec-pin', () => window.electronAPI.togglePin());
+  guardedClick('eco-lamp', () => window.electronAPI.toggleEco());
   // Edge docking: main tells us which side (if any) we're collapsed against;
   // clicking the grab handle expands the widget back to its old spot.
   window.electronAPI.onDockState((side) => {

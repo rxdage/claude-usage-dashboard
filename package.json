@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-dashboard",
-  "version": "1.11.2",
+  "version": "1.12.0",
   "description": "A floating desktop widget showing Claude Code and ChatGPT/Codex Desktop plan usage in real time — 100% local.",
   "main": "main.js",
   "author": "rxdage",
@@ -45,6 +45,7 @@
       "calibrate.js",
       "providers.js",
       "dock.js",
+      "eco.js",
       "providers/**",
       "renderer/**",
       "assets/**"
