@@ -3,35 +3,37 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { decideDock, dockBounds, HANDLE_PX } = require('../dock');
+const { decideDock, dockBounds, HANDLE_PX, DOCK_FRACTION } = require('../dock');
 
 const AREA = { x: 0, y: 0, width: 1200, height: 800 };
 const W = 300, H = 140;
+const OUT_W = W * DOCK_FRACTION;   // 90px with the 30% threshold
+const OUT_H = H * DOCK_FRACTION;   // 42px
 const at = (x, y) => ({ x, y, width: W, height: H });
 
 test('fully inside: no dock', () => {
   assert.equal(decideDock(at(400, 300), AREA), null);
 });
 
-test('right edge: docks at >=50% out, not just under', () => {
-  assert.equal(decideDock(at(1200 - W / 2, 300), AREA), 'right');      // exactly half out
-  assert.equal(decideDock(at(1200 - W / 2 - 1, 300), AREA), null);     // 1px under half
-  assert.equal(decideDock(at(1150, 300), AREA), 'right');              // deep out
+test('right edge: docks at >=30% out, not just under', () => {
+  assert.equal(decideDock(at(1200 - W + OUT_W, 300), AREA), 'right');      // exactly 30% out
+  assert.equal(decideDock(at(1200 - W + OUT_W - 1, 300), AREA), null);     // 1px under
+  assert.equal(decideDock(at(1150, 300), AREA), 'right');                  // deep out
 });
 
 test('left edge symmetric', () => {
-  assert.equal(decideDock(at(-W / 2, 300), AREA), 'left');
-  assert.equal(decideDock(at(-W / 2 + 1, 300), AREA), null);
+  assert.equal(decideDock(at(-OUT_W, 300), AREA), 'left');
+  assert.equal(decideDock(at(-OUT_W + 1, 300), AREA), null);
 });
 
 test('bottom edge uses height', () => {
-  assert.equal(decideDock(at(400, 800 - H / 2), AREA), 'bottom');
-  assert.equal(decideDock(at(400, 800 - H / 2 - 1), AREA), null);
+  assert.equal(decideDock(at(400, 800 - H + OUT_H), AREA), 'bottom');
+  assert.equal(decideDock(at(400, 800 - H + OUT_H - 1), AREA), null);
 });
 
 test('corner drop: the deeper overflow wins', () => {
-  // far out right, just half out bottom -> right
-  const b = { x: 1200 - 40, y: 800 - H / 2, width: W, height: H };
+  // far out right, just past threshold at the bottom -> right
+  const b = { x: 1200 - W + OUT_W + 60, y: 800 - H + OUT_H, width: W, height: H };
   assert.equal(decideDock(b, AREA), 'right');
 });
 

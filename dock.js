@@ -7,10 +7,12 @@
 // can never go above the work area, so a top overflow of >=50% is unreachable.
 const HANDLE_PX = 12; // strip of the window left visible while docked
 const DOCK_SIDES = ['left', 'right', 'bottom'];
+const DOCK_FRACTION = 0.3; // how much of the window must hang past an edge
 
 // Where (if anywhere) should a window dropped at bounds `b` dock?
-// A side qualifies when at least half the window hangs past that edge;
-// with several qualifying (dragged into a corner), the deepest overflow wins.
+// A side qualifies when >=30% of the window hangs past that edge — a light
+// flick is enough, no need to shove most of it off-screen. With several
+// qualifying (dragged into a corner), the deepest overflow wins.
 function decideDock(b, area) {
   const out = {
     left: area.x - b.x,
@@ -18,9 +20,9 @@ function decideDock(b, area) {
     bottom: (b.y + b.height) - (area.y + area.height),
   };
   let side = null;
-  if (out.left >= b.width / 2) side = 'left';
-  if (out.right >= b.width / 2 && (!side || out.right > out[side])) side = 'right';
-  if (out.bottom >= b.height / 2 && (!side || out.bottom > out[side])) side = 'bottom';
+  if (out.left >= b.width * DOCK_FRACTION) side = 'left';
+  if (out.right >= b.width * DOCK_FRACTION && (!side || out.right > out[side])) side = 'right';
+  if (out.bottom >= b.height * DOCK_FRACTION && (!side || out.bottom > out[side])) side = 'bottom';
   return side;
 }
 
@@ -35,4 +37,4 @@ function dockBounds(side, b, area) {
   return { x: clampX, y: area.y + area.height - HANDLE_PX, width: b.width, height: b.height }; // bottom
 }
 
-module.exports = { decideDock, dockBounds, HANDLE_PX, DOCK_SIDES };
+module.exports = { decideDock, dockBounds, HANDLE_PX, DOCK_SIDES, DOCK_FRACTION };

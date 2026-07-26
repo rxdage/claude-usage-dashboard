@@ -41,23 +41,32 @@ body.docked #dock-handle {
 body.dock-right #dock-handle { left: 0; top: 0; bottom: 0; width: 12px; align-items: center; justify-content: flex-end; }
 body.dock-left #dock-handle { right: 0; top: 0; bottom: 0; width: 12px; align-items: center; justify-content: flex-start; }
 body.dock-bottom #dock-handle { top: 0; left: 0; right: 0; height: 12px; align-items: flex-end; justify-content: center; }
+/* The arch reads as a lit amber indicator lamp — the same luminous language
+   as the gauge digits and bar fills: hot bright core, warm falloff, soft
+   bloom into the surroundings. Hover turns it up, like a lamp test. */
 #dock-handle span {
   display: block;
-  background: linear-gradient(180deg, #b9c2d4 0%, #6a7488 48%, #454e60 100%);
-  border: 1px solid #7c87a0;
+  background: linear-gradient(180deg, #ffe2b0 0%, #f5ad4d 42%, #cf8425 78%, #a96617 100%);
+  border: 1px solid rgba(255, 196, 120, 0.85);
   box-shadow:
-    0 0 8px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  transition: border-color .15s, box-shadow .15s, background .15s;
+    0 0 14px rgba(240, 165, 60, 0.65),
+    0 0 4px rgba(255, 222, 168, 0.9),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -5px 8px rgba(130, 72, 8, 0.5);
+  transition: box-shadow .15s, background .15s, border-color .15s;
 }
 /* flat side flush with the screen edge, arch bulging inward */
 body.dock-right #dock-handle span { width: 10px; height: 76px; border-radius: 10px 0 0 10px; border-right: none; }
 body.dock-left #dock-handle span { width: 10px; height: 76px; border-radius: 0 10px 10px 0; border-left: none; }
 body.dock-bottom #dock-handle span { height: 10px; width: 76px; border-radius: 10px 10px 0 0; border-bottom: none; }
 #dock-handle:hover span {
-  border-color: #e8a33d;
-  background: linear-gradient(180deg, #d3b183 0%, #a5793e 48%, #6d4d22 100%);
-  box-shadow: 0 0 12px rgba(232, 163, 61, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 224, 170, 0.95);
+  background: linear-gradient(180deg, #fff0d4 0%, #ffc670 42%, #eb9c33 78%, #c67c1e 100%);
+  box-shadow:
+    0 0 20px rgba(255, 186, 84, 0.9),
+    0 0 6px rgba(255, 236, 200, 1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.65),
+    inset 0 -5px 8px rgba(150, 84, 12, 0.45);
 }
 
 #panel::before {
