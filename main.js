@@ -4,6 +4,7 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { Providers } = require('./providers');
 const { credentialStatus } = require('./providers/claude');
+const { decideAutoHide } = require('./autohide');
 
 // In a packaged build __dirname lives inside the read-only asar, so config must
 // live in userData. In dev (npm start) keep it in the project dir so `npm run
@@ -31,6 +32,62 @@ let pushStats = null;
 let lastPrimaryName = null;
 let updateReadyVersion = null; // set when an update has been downloaded
 let updateStatus = null;       // transient tray line: 'checking…' / 'downloading vX…' / 'up to date'
+
+// ---- Passive auto-hide (idle fade-out, activity fade-in) ----
+// `autoHidden` marks a hide done by the idle timer, NOT by the user — only
+// those get auto-shown again. A manual hide stays hidden until a manual show.
+let autoHidden = false;
+let autoHideSuppressedUntil = 0; // grace after launch / manual show, so the
+                                 // widget never vanishes right after being opened
+
+function baseOpacity() {
+  const c = loadConfig();
+  return typeof c.opacity === 'number' ? Math.min(1, Math.max(0.3, c.opacity)) : 1;
+}
+function autoHideIdleMs() {
+  const c = loadConfig();
+  const m = Number.isFinite(c.autoHideMinutes) && c.autoHideMinutes > 0 ? c.autoHideMinutes : 10;
+  return m * 60000;
+}
+function suppressAutoHide() { autoHideSuppressedUntil = Date.now() + autoHideIdleMs(); }
+
+function fadeWindow(from, to, ms, after) {
+  const steps = 6;
+  let i = 0;
+  const t = setInterval(() => {
+    i++;
+    if (!win || win.isDestroyed()) { clearInterval(t); return; }
+    try { win.setOpacity(from + (to - from) * (i / steps)); } catch {}
+    if (i >= steps) { clearInterval(t); if (after) after(); }
+  }, Math.max(16, Math.round(ms / steps)));
+}
+
+function maybeAutoHide(payload) {
+  if (!win || win.isDestroyed()) return;
+  const cfg = loadConfig();
+  const act = decideAutoHide({
+    enabled: cfg.autoHide !== false,
+    idleMinutes: cfg.autoHideMinutes,
+    lastActivity: payload.lastActivityAll || null,
+    now: Date.now(),
+    autoHidden,
+  });
+  if (act === 'hide') {
+    if (Date.now() < autoHideSuppressedUntil) return;
+    if (!win.isVisible()) return; // already hidden by the user — leave it alone
+    autoHidden = true;
+    fadeWindow(baseOpacity(), 0, 240, () => {
+      if (autoHidden && win && !win.isDestroyed()) win.hide();
+      try { win.setOpacity(baseOpacity()); } catch {} // restore for the next show
+    });
+  } else if (act === 'show') {
+    autoHidden = false;
+    if (win.isVisible()) return;
+    try { win.setOpacity(0); } catch {}
+    win.showInactive(); // never steal focus from the tool the user just went back to
+    fadeWindow(0, baseOpacity(), 240);
+  }
+}
 
 // ---- Auto-update (NSIS install only) ----
 // The portable exe has no install directory to update in place, and dev runs
@@ -238,7 +295,8 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (win) { win.show(); win.focus(); }
+    // relaunch = "show me the widget" — also counts as a manual show
+    if (win) { autoHidden = false; suppressAutoHide(); try { win.setOpacity(baseOpacity()); } catch {} win.show(); win.focus(); }
   });
 }
 
@@ -288,6 +346,7 @@ app.whenReady().then(async () => {
 
   setupAutoUpdate();
   syncLoginItem();
+  suppressAutoHide(); // launching the app counts as "I want to see it"
 
   // getPayload is async (official usage may await a network call). Guard against
   // overlapping ticks so a slow fetch never stacks up requests.
@@ -304,6 +363,7 @@ app.whenReady().then(async () => {
         buildTrayMenu();
       }
       updateTrayTooltip(payload.alert);
+      maybeAutoHide(payload);
       win.webContents.send('stats', payload);
     } catch (err) {
       if (win && !win.isDestroyed()) win.webContents.send('stats-error', String(err));
@@ -408,7 +468,10 @@ function buildTrayMenu() {
   }
   items.push(
     { type: 'separator' },
-    { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
+    { label: 'Show / Hide', click: () => {
+      if (win.isVisible()) { win.hide(); autoHidden = false; } // manual hide sticks
+      else { autoHidden = false; suppressAutoHide(); try { win.setOpacity(baseOpacity()); } catch {} win.show(); }
+    } },
   );
   // provider selection only matters when both data sources exist
   if (have.claude && have.codex) {
@@ -442,6 +505,23 @@ function buildTrayMenu() {
       },
     });
   }
+  items.push({
+    label: 'Auto-hide when idle', type: 'checkbox', checked: cfg.autoHide !== false,
+    click: (item) => {
+      const c = loadConfig();
+      c.autoHide = item.checked;
+      saveConfig(c);
+      if (item.checked) {
+        suppressAutoHide(); // grace period from the moment it's switched on
+      } else if (autoHidden) {
+        autoHidden = false;
+        if (win && !win.isDestroyed() && !win.isVisible()) {
+          try { win.setOpacity(baseOpacity()); } catch {}
+          win.showInactive();
+        }
+      }
+    },
+  });
   items.push(
     { label: 'Open config folder', click: () => {
       if (fs.existsSync(CONFIG_PATH)) shell.showItemInFolder(CONFIG_PATH);

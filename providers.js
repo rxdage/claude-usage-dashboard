@@ -313,7 +313,12 @@ class Providers {
     // Threshold alert reflects the primary provider (what the cluster shows).
     const alert = computeAlert(primary.alertMeters || [], config);
 
-    return { ...primary, mode, primaryName, secondary, available: have, alert };
+    // Most recent activity across BOTH providers — drives passive auto-hide
+    // (the widget should stay up while EITHER tool is in use).
+    const lastActivityAll =
+      Math.max((cl && cl.lastActivity) || 0, (cx && cx.lastActivity) || 0) || null;
+
+    return { ...primary, mode, primaryName, secondary, available: have, alert, lastActivityAll };
   }
 }
 
