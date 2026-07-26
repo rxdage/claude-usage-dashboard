@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hide: () => ipcRenderer.send('hide-app'),
   swapProvider: () => ipcRenderer.send('swap-provider'),
   togglePin: () => ipcRenderer.send('toggle-pin'),
+  // edge docking
+  onDockState: (cb) => ipcRenderer.on('dock-state', (_e, side) => cb(side)),
+  undock: () => ipcRenderer.send('undock'),
   // calibration dialog
   calGetCurrent: () => ipcRenderer.invoke('cal:getCurrent'),
   calApply: (pct) => ipcRenderer.invoke('cal:apply', pct),

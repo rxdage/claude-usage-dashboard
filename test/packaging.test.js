@@ -42,5 +42,5 @@ test('every local module reachable from the entry points is in build.files', () 
   }
   // sanity: the walk actually traversed the app, not just the entry list
   assert.ok(seen.has('providers.js'));
-  assert.ok(seen.has('autohide.js'));
+  assert.ok(seen.has('dock.js'));
 });

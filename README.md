@@ -212,15 +212,11 @@ Keys:
   Windows") or set `"startAtLogin": false`. The portable exe defaults to off
   (the file may move around) but the same toggle works if you keep it in one
   place. Uninstalling removes the entry.
-- **Auto-hide when idle** (on by default) — a dashboard should only glow when
-  you're driving. If neither Claude Code nor Codex has produced any usage for
-  ~10 seconds, the widget fades out (the tray icon stays); the moment new
-  activity is detected it fades back in, without stealing focus. Watching a
-  movie → it gets out of the way; back to coding → it's there. Hiding it
-  manually (the `–` button) keeps it hidden until you show it yourself.
-  Toggle via the tray ("Auto-hide when idle"), or tune it in `config.json`:
-  `"autoHide": false` disables, `"autoHideMinutes"` sets the threshold in
-  minutes (fractions allowed — `0.5` = 30s, `10` = the old lazy 10 minutes).
+- **Edge docking** — drag the widget more than halfway past the left, right,
+  or bottom screen edge and it collapses into a slim grab handle hugging that
+  edge (amber glow on hover). Click the handle to expand it back to where it
+  was. The docked state survives restarts. No timers, no magic — it tucks
+  away exactly when you tuck it away.
 
 ### Two known systematic gaps
 

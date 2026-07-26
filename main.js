@@ -4,7 +4,7 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { Providers } = require('./providers');
 const { credentialStatus } = require('./providers/claude');
-const { decideAutoHide, DEFAULT_IDLE_MIN } = require('./autohide');
+const { decideDock, dockBounds, DOCK_SIDES } = require('./dock');
 
 // In a packaged build __dirname lives inside the read-only asar, so config must
 // live in userData. In dev (npm start) keep it in the project dir so `npm run
@@ -33,60 +33,45 @@ let lastPrimaryName = null;
 let updateReadyVersion = null; // set when an update has been downloaded
 let updateStatus = null;       // transient tray line: 'checking…' / 'downloading vX…' / 'up to date'
 
-// ---- Passive auto-hide (idle fade-out, activity fade-in) ----
-// `autoHidden` marks a hide done by the idle timer, NOT by the user — only
-// those get auto-shown again. A manual hide stays hidden until a manual show.
-let autoHidden = false;
-let autoHideSuppressedUntil = 0; // grace after launch / manual show, so the
-                                 // widget never vanishes right after being opened
+// ---- Edge docking (drag mostly off-screen -> slim grab handle) ----
+// `docked` mirrors cfg.dock; geometry lives in dock.js (unit-tested).
+let docked = null;        // 'left' | 'right' | 'bottom' | null
+let ignoreMoves = false;  // programmatic setPosition must not re-trigger docking
 
-function baseOpacity() {
+function sendDockState() {
+  if (win && !win.isDestroyed()) win.webContents.send('dock-state', docked);
+}
+function setDocked(side) {
+  docked = side;
   const c = loadConfig();
-  return typeof c.opacity === 'number' ? Math.min(1, Math.max(0.3, c.opacity)) : 1;
+  if (side) c.dock = side; else delete c.dock;
+  saveConfig(c);
+  sendDockState();
 }
-function autoHideIdleMs() {
+function moveQuietly(x, y) {
+  ignoreMoves = true;
+  try { win.setPosition(Math.round(x), Math.round(y)); } catch {}
+  setTimeout(() => { ignoreMoves = false; }, 400);
+}
+function dockTo(side) {
+  const b = win.getBounds();
+  const area = screen.getDisplayMatching(b).workArea;
+  const nb = dockBounds(side, b, area);
+  moveQuietly(nb.x, nb.y);
+  setDocked(side);
+}
+function undock() {
+  if (!docked || !win || win.isDestroyed()) return;
   const c = loadConfig();
-  const m = Number.isFinite(c.autoHideMinutes) && c.autoHideMinutes > 0 ? c.autoHideMinutes : DEFAULT_IDLE_MIN;
-  return m * 60000;
-}
-function suppressAutoHide() { autoHideSuppressedUntil = Date.now() + autoHideIdleMs(); }
-
-function fadeWindow(from, to, ms, after) {
-  const steps = 6;
-  let i = 0;
-  const t = setInterval(() => {
-    i++;
-    if (!win || win.isDestroyed()) { clearInterval(t); return; }
-    try { win.setOpacity(from + (to - from) * (i / steps)); } catch {}
-    if (i >= steps) { clearInterval(t); if (after) after(); }
-  }, Math.max(16, Math.round(ms / steps)));
-}
-
-function maybeAutoHide(payload) {
-  if (!win || win.isDestroyed()) return;
-  const cfg = loadConfig();
-  const act = decideAutoHide({
-    enabled: cfg.autoHide !== false,
-    idleMinutes: cfg.autoHideMinutes,
-    lastActivity: payload.lastActivityAll || null,
-    now: Date.now(),
-    autoHidden,
-  });
-  if (act === 'hide') {
-    if (Date.now() < autoHideSuppressedUntil) return;
-    if (!win.isVisible()) return; // already hidden by the user — leave it alone
-    autoHidden = true;
-    fadeWindow(baseOpacity(), 0, 240, () => {
-      if (autoHidden && win && !win.isDestroyed()) win.hide();
-      try { win.setOpacity(baseOpacity()); } catch {} // restore for the next show
-    });
-  } else if (act === 'show') {
-    autoHidden = false;
-    if (win.isVisible()) return;
-    try { win.setOpacity(0); } catch {}
-    win.showInactive(); // never steal focus from the tool the user just went back to
-    fadeWindow(0, baseOpacity(), 240);
-  }
+  const area = screen.getDisplayMatching(win.getBounds()).workArea;
+  // restore to the last settled in-bounds position (cfg.x/y is never
+  // overwritten while docked), clamped fully on-screen
+  let x = typeof c.x === 'number' ? c.x : area.x + area.width - WIN_W - 16;
+  let y = typeof c.y === 'number' ? c.y : area.y + 16;
+  x = Math.min(Math.max(x, area.x), area.x + area.width - WIN_W);
+  y = Math.min(Math.max(y, area.y), area.y + area.height - winH);
+  moveQuietly(x, y);
+  setDocked(null);
 }
 
 // ---- Auto-update (NSIS install only) ----
@@ -263,26 +248,44 @@ function createWindow() {
   if (typeof cfg.opacity === 'number') win.setOpacity(Math.min(1, Math.max(0.3, cfg.opacity)));
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  // Magnetic edge snap: on Windows 'moved' fires continuously during a drag,
-  // and calling setPosition mid-drag fights the OS drag loop. So snap only
+  // Drag settle: on Windows 'moved' fires continuously during a drag, and
+  // calling setPosition mid-drag fights the OS drag loop. So decide only
   // after the position has been stable for a beat (i.e. the user let go).
+  // Dropped more than half past an edge -> dock into a grab handle there;
+  // otherwise magnetic edge snap, and the position is saved as the restore
+  // point (never overwritten while docked).
+  const settleNow = () => {
+    if (!win || win.isDestroyed() || docked) return;
+    const b = win.getBounds();
+    const area = screen.getDisplayMatching(b).workArea;
+    const side = decideDock(b, area);
+    if (side) { dockTo(side); return; }
+    const { x, y } = b;
+    let nx = x, ny = y;
+    if (Math.abs(x - area.x) <= SNAP) nx = area.x;
+    else if (Math.abs((x + WIN_W) - (area.x + area.width)) <= SNAP) nx = area.x + area.width - WIN_W;
+    if (Math.abs(y - area.y) <= SNAP) ny = area.y;
+    else if (Math.abs((y + winH) - (area.y + area.height)) <= SNAP) ny = area.y + area.height - winH;
+    if (nx !== x || ny !== y) win.setPosition(nx, ny);
+    const c = loadConfig();
+    c.x = nx; c.y = ny;
+    saveConfig(c);
+  };
   let settleTimer = null;
   win.on('moved', () => {
+    if (ignoreMoves) return;
     clearTimeout(settleTimer);
-    settleTimer = setTimeout(() => {
-      const [x, y] = win.getPosition();
-      const area = screen.getDisplayMatching(win.getBounds()).workArea;
-      let nx = x, ny = y;
-      if (Math.abs(x - area.x) <= SNAP) nx = area.x;
-      else if (Math.abs((x + WIN_W) - (area.x + area.width)) <= SNAP) nx = area.x + area.width - WIN_W;
-      if (Math.abs(y - area.y) <= SNAP) ny = area.y;
-      else if (Math.abs((y + winH) - (area.y + area.height)) <= SNAP) ny = area.y + area.height - winH;
-      if (nx !== x || ny !== y) win.setPosition(nx, ny);
-      const c = loadConfig();
-      c.x = nx; c.y = ny;
-      saveConfig(c);
-    }, 260);
+    settleTimer = setTimeout(settleNow, 260);
   });
+  win.settleNow = settleNow; // for the --test-move debug hook
+
+  // A dock side persisted from the previous run: start collapsed.
+  if (DOCK_SIDES.includes(cfg.dock)) {
+    docked = cfg.dock;
+    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    const nb = dockBounds(docked, win.getBounds(), area);
+    moveQuietly(nb.x, nb.y);
+  }
 }
 
 // single instance: relaunching just reveals the existing widget. The usage
@@ -295,8 +298,7 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    // relaunch = "show me the widget" — also counts as a manual show
-    if (win) { autoHidden = false; suppressAutoHide(); try { win.setOpacity(baseOpacity()); } catch {} win.show(); win.focus(); }
+    if (win) { win.show(); win.focus(); }
   });
 }
 
@@ -346,7 +348,6 @@ app.whenReady().then(async () => {
 
   setupAutoUpdate();
   syncLoginItem();
-  suppressAutoHide(); // launching the app counts as "I want to see it"
 
   // getPayload is async (official usage may await a network call). Guard against
   // overlapping ticks so a slow fetch never stacks up requests.
@@ -363,7 +364,6 @@ app.whenReady().then(async () => {
         buildTrayMenu();
       }
       updateTrayTooltip(payload.alert);
-      maybeAutoHide(payload);
       win.webContents.send('stats', payload);
     } catch (err) {
       if (win && !win.isDestroyed()) win.webContents.send('stats-error', String(err));
@@ -373,7 +373,7 @@ app.whenReady().then(async () => {
     }
   };
   pushStats = () => { void push(); };
-  win.webContents.on('did-finish-load', pushStats);
+  win.webContents.on('did-finish-load', () => { sendDockState(); pushStats(); });
   setInterval(pushStats, 3000);
 
   // Wake-from-sleep / unlock: the access token or connection may have dropped
@@ -414,6 +414,21 @@ app.whenReady().then(async () => {
       } catch (e) { console.error(e); }
       app.quit();
     }, 2500);
+  }
+
+  // Debug: `electron . --shot-stay --test-move=<x>,<y>` moves the window after
+  // 3s and runs the drag-settle decision (dock included) E2E. settleNow is
+  // invoked directly because a programmatic setPosition does not reliably
+  // emit 'moved' on Windows (a real user drag does — the snap feature's
+  // event plumbing is exercised in production every day).
+  const testMoveArg = process.argv.find((a) => a.startsWith('--test-move='));
+  if (testMoveArg) {
+    const [mx, my] = testMoveArg.slice('--test-move='.length).split(',').map(Number);
+    if (Number.isFinite(mx) && Number.isFinite(my)) {
+      setTimeout(() => {
+        try { win.setPosition(mx, my); setTimeout(() => win.settleNow(), 300); } catch {}
+      }, 3000);
+    }
   }
 
   // Debug: `electron . --shot=<path>` captures the rendered widget and exits.
@@ -468,10 +483,7 @@ function buildTrayMenu() {
   }
   items.push(
     { type: 'separator' },
-    { label: 'Show / Hide', click: () => {
-      if (win.isVisible()) { win.hide(); autoHidden = false; } // manual hide sticks
-      else { autoHidden = false; suppressAutoHide(); try { win.setOpacity(baseOpacity()); } catch {} win.show(); }
-    } },
+    { label: 'Show / Hide', click: () => (win.isVisible() ? win.hide() : win.show()) },
   );
   // provider selection only matters when both data sources exist
   if (have.claude && have.codex) {
@@ -505,23 +517,6 @@ function buildTrayMenu() {
       },
     });
   }
-  items.push({
-    label: 'Auto-hide when idle', type: 'checkbox', checked: cfg.autoHide !== false,
-    click: (item) => {
-      const c = loadConfig();
-      c.autoHide = item.checked;
-      saveConfig(c);
-      if (item.checked) {
-        suppressAutoHide(); // grace period from the moment it's switched on
-      } else if (autoHidden) {
-        autoHidden = false;
-        if (win && !win.isDestroyed() && !win.isVisible()) {
-          try { win.setOpacity(baseOpacity()); } catch {}
-          win.showInactive();
-        }
-      }
-    },
-  });
   items.push(
     { label: 'Open config folder', click: () => {
       if (fs.existsSync(CONFIG_PATH)) shell.showItemInFolder(CONFIG_PATH);
@@ -698,6 +693,7 @@ ipcMain.on('toggle-pin', () => {
 
 ipcMain.on('close-app', () => app.quit());
 ipcMain.on('hide-app', () => win && win.hide());
+ipcMain.on('undock', () => undock());
 
 // keep the app alive while only the widget is hidden; quit when the widget
 // itself is closed (calibrate window closing must not quit the app)

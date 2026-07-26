@@ -238,6 +238,14 @@ if (window.electronAPI) {
   };
   guardedClick('sec-swap', () => window.electronAPI.swapProvider());
   guardedClick('sec-pin', () => window.electronAPI.togglePin());
+  // Edge docking: main tells us which side (if any) we're collapsed against;
+  // clicking the grab handle expands the widget back to its old spot.
+  window.electronAPI.onDockState((side) => {
+    document.body.classList.toggle('docked', !!side);
+    document.body.classList.remove('dock-left', 'dock-right', 'dock-bottom');
+    if (side) document.body.classList.add('dock-' + side);
+  });
+  document.getElementById('dock-handle').addEventListener('click', () => window.electronAPI.undock());
 } else {
   // browser demo (normalized payload)
   let t = 0;

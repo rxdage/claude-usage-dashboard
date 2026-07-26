@@ -123,29 +123,39 @@ function tokenFromCredentialObject(value, source, file = null) {
 async function refreshAccessToken(refreshToken, fetchFn) {
   if (!fetchFn) throw new Error('refresh-fetch-unavailable');
   if (!refreshToken) throw new Error('refresh-token-missing');
-  const res = await fetchFn(OAUTH_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'User-Agent': CLI_USER_AGENT, // required — see CLI_USER_AGENT comment above
-    },
-    body: JSON.stringify({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_id: OAUTH_CLIENT_ID,
-    }),
-  });
-  if (!res.ok) throw new Error(`refresh-http-${res.status}`);
-  const j = await res.json();
-  if (!j || typeof j.access_token !== 'string' || !j.access_token) {
-    throw new Error('refresh-no-access-token');
+  // Same hard timeout as the usage fetch: a proxy stall here would otherwise
+  // hang refresh() forever, and with no cache yet that pins getUsage() — and
+  // the whole stats loop awaiting it — until the app restarts.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetchFn(OAUTH_TOKEN_URL, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'User-Agent': CLI_USER_AGENT, // required — see CLI_USER_AGENT comment above
+      },
+      body: JSON.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: OAUTH_CLIENT_ID,
+      }),
+    });
+    if (!res.ok) throw new Error(`refresh-http-${res.status}`);
+    const j = await res.json();
+    if (!j || typeof j.access_token !== 'string' || !j.access_token) {
+      throw new Error('refresh-no-access-token');
+    }
+    return {
+      accessToken: j.access_token,
+      refreshToken: (typeof j.refresh_token === 'string' && j.refresh_token) ? j.refresh_token : refreshToken,
+      expiresAt: Number.isFinite(Number(j.expires_in)) ? Date.now() + Number(j.expires_in) * 1000 : null,
+    };
+  } finally {
+    clearTimeout(timer);
   }
-  return {
-    accessToken: j.access_token,
-    refreshToken: (typeof j.refresh_token === 'string' && j.refresh_token) ? j.refresh_token : refreshToken,
-    expiresAt: Number.isFinite(Number(j.expires_in)) ? Date.now() + Number(j.expires_in) * 1000 : null,
-  };
 }
 
 // Merge the refreshed tokens back into the shared credential file WITHOUT
