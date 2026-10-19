@@ -45,7 +45,7 @@ const TOML = [
   'model = "gpt-5.5"',
   'model_reasoning_effort = "xhigh"',
   '',
-  "[projects.'c:\\users\\woshi']",
+  "[projects.'c:\\users\\alice']",
   'trust_level = "trusted"',
   '',
   '[tui.model_availability_nux]',
